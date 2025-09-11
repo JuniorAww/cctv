@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@sequelize/sqlite3": "^7.0.0-alpha.46",
+    "dotenv": "^17.2.1",
+    "nodemailer": "^7.0.6",
+    "redis": "^5.8.2"
+  }
+}
