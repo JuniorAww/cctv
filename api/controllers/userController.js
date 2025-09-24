@@ -102,7 +102,7 @@ const UserController = new class UserController {
             role: 0
         })
         
-        return await AuthController.createSession(user, fingerprint)
+        return await AuthController.createSession(user, fingerprint, request.ip)
     }
     
     async get(request, [ url, query ]) {
@@ -121,10 +121,13 @@ const UserController = new class UserController {
             { model: TelegramAccount, as: 'telegramAccount' }
         ] : []
 
-        const include = [...includeGroups, ...includeAccounts]
+        const includeSessions = fields?.includes('sessions') ? [
+            { model: Session, where: { disabled: false }, as: 'sessions' },
+        ] : []
+
+        const include = [...includeGroups, ...includeAccounts, ...includeSessions ]
 
         // /users — вернуть всех пользователей
-        console.log(query)
         if (!query) {
             if (access !== "ALL") return sendJson({ error: 'No Access' })
             const users = await User.findAll({ include })
@@ -149,7 +152,10 @@ const UserController = new class UserController {
                     ...(fields?.includes('accounts') && {
                         webAccount: u.webAccount,
                         telegramAccount: u.telegramAccount
-                    })
+                    }),
+                    /*...(fields?.includes('sessions') && {
+                        sessions: u.sessions,
+                    }),*/
                 }))
             })
         }
@@ -183,7 +189,17 @@ const UserController = new class UserController {
                 ...(fields?.includes('accounts') && {
                     webAccounts: user.webAccount,
                     telegramAccounts: user.telegramAccount
-                })
+                }),
+                ...(fields?.includes('sessions') && {
+                    sessions: user.sessions.map(s => {
+                        return {
+                            id: s.id,
+                            name: s.name,
+                            expiresAt: s.expiresAt,
+                            history: s.history,
+                        }
+                    })
+                }),
             }
         }
 

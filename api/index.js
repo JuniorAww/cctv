@@ -22,13 +22,13 @@ const MEDIA_PORT = 3034
 
 const authenticate = AuthController.authenticate
 
-/*
-// Mixed internal/public routes
-*/
-
-// TODO test thing
+/* test thing
 //await Token.destroy({ where: { access: 'ALL' } })
-//const token = await Token.create({ name: 'zapis-da', access: 'ALL', data: crypto.randomUUID().replace(/-/g, '') });console.log(token)
+const token = await Token.create({ name: 'bot', access: 'ALL', data: crypto.randomUUID().replace(/-/g, '') });console.log(token)*/
+
+/**
+ Токены доступа для TG бота
+ */
 
 const tokens = {}
 
@@ -50,11 +50,12 @@ function nginxHandler(request) {
     
     console.log(method, path)
     
-    // Специальные доступы для Telegram бота, видеорегистраторов
-    const secret = request.headers.get('X-Secret')
-    if(secret) {
-        if(tokens[secret] !== undefined) request.access = tokens[secret]
-    }
+    /* Токены доступа */
+     const secret = request.headers.get('X-Secret')
+     if(secret) {
+         if(tokens[secret] !== undefined) request.access = tokens[secret]
+     }
+    /* ============== */
     
     const arg = path.split('/')
     
@@ -98,6 +99,9 @@ function nginxHandler(request) {
     else if (method === 'DELETE') {
         if (arg[1] === 'cameras') {
             if (Number(arg[2]) && !arg[3]) return CameraController.delete(request, arg[2]) // Restricted
+        }
+        else if (arg[1] === 'sessions') {
+            if (Number(arg[2]) && !arg[3]) return authenticate(request, Number(arg[2]), SessionController.delete)
         }
         //else if (arg[1] === 'admin' && request.access === 'ALL') return patch(request)
     }

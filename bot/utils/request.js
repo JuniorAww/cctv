@@ -8,7 +8,7 @@ const request = async (ctx, url, data) => {
             headers: {
                 'X-Secret': process.env.SECRET
             }
-        });console.log(process.env.SECRET)
+        });
         return await response.json()
     } catch (e) {
         console.log(e)

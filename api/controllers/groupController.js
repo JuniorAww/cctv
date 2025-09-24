@@ -70,8 +70,7 @@ const GroupController = new class GroupController {
         const response = { success: true }
         if(requestedGroupId) response.group = result[0]
         else response.groups = result
-
-        console.log(response)
+        
         return sendJson(response)
     }
     
@@ -102,8 +101,7 @@ const GroupController = new class GroupController {
         })
 
         const response = { success: true, members: groupUsers }
-
-        console.log(response)
+        
         return sendJson(response)
     }
 }

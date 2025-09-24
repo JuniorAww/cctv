@@ -1,12 +1,15 @@
 import React, { useState, useMemo } from 'react'
+import TimeAgo from '../utils/timeAgo'
+import styles from '../styles'
 
-export default function Settings({ api, groups, group, onGroupUserChange }) {
+export default function Settings({ api, groups, group, sessions, setSessions, getSession, onGroupUserChange }) {
   const groupData = useMemo(() => groups.find(x => x.id === group), [ groups, group ])
   const [ name, setName ] = useState(groupData.member.name)
   const [ avatar, setAvatar ] = useState(groupData.member?.avatar || null)
-  const [ editing, setEditing ] = useState(false)
-  const [ loading, setLoading ] = useState(false)
-  const [ error, setError ] = useState(null)
+  const [ activeTab, setActiveTab ] = useState('profile');
+  const [ isEditing, setEditing ] = useState(false);
+  const [ loading, setLoading ] = useState(false);
+  const [ error, setError ] = useState(null);
 
   const onSave = async () => {
     setLoading(true)
@@ -22,12 +25,13 @@ export default function Settings({ api, groups, group, onGroupUserChange }) {
 
       // 2. Загрузка аватара (если есть)
       let avatarUrl = avatar
+      console.log(avatar);
       if (avatar && avatar.startsWith('data:image')) {
         const blob = await (await fetch(avatar)).blob()
         const form = new FormData()
-        form.append('avatar', blob, 'avatar.jpeg') // лучше jpeg
+        form.append('avatar', blob, 'avatar.jpeg')
         const resAvatar = await api(`/groups/${group}/member/avatar`, true, {
-          method: 'PATCH', // PATCH работает, если сервер поддерживает
+          method: 'PATCH',
           body: form
         })
         if (!resAvatar.ok) throw new Error('Не удалось загрузить аватар')
@@ -75,40 +79,109 @@ export default function Settings({ api, groups, group, onGroupUserChange }) {
 
       img.onerror = () => console.error('Не удалось загрузить изображение')
   }
+  
+  const disableSession = async session => {
+    const response = await api(`/sessions/${session.id}`, true, {
+      method: 'DELETE',
+    })
+    const { success, error } = await response.json();
+    
+    if (success) {
+        setSessions([...sessions].filter(s => s.id !== session.id))
+    }
+    else alert(error)
+  }
+  
+  const currentSession = useMemo(() => getSession()?.current, []);
 
-
-
-  return (
-    <div className="max-w-md mx-auto">
-      {!editing ? (
-        <>
-          <h2 className="text-lg font-semibold mb-4">Настройки профиля</h2>
-          <div className="flex items-center mb-4 space-x-4">
-            <div className="w-16 h-16 rounded-full bg-gray-300 overflow-hidden flex items-center justify-center text-xl font-bold">
-              {avatar ? <img src={avatar} alt="avatar" className="w-full h-full object-cover" /> : name?.[0]}
+    return (
+        <div style={{maxWidth: '800px', margin: '0 auto'}}>
+            <div style={styles.settingsTabs}>
+                <button onClick={() => setActiveTab('profile')} style={{...styles.settingsTabButton, ...(activeTab === 'profile' ? styles.settingsTabButtonActive : styles.settingsTabButtonInactive)}}>Профиль</button>
+                <button onClick={() => setActiveTab('sessions')} style={{...styles.settingsTabButton, ...(activeTab === 'sessions' ? styles.settingsTabButtonActive : styles.settingsTabButtonInactive)}}>Сессии</button>
             </div>
-            <div>
-              <p className="text-xl font-semibold">{name}</p>
-              <button className="mt-1 text-blue-600 underline" onClick={() => setEditing(true)}>Редактировать</button>
+            <div style={styles.card}>
+                {activeTab === 'profile' ? (
+                    isEditing ? (
+                        <ProfileTab 
+                            name={name}
+                            setName={setName}
+                            avatar={avatar}
+                            setAvatar={setAvatar}
+                            onFileChange={onFileChange}
+                            onSave={onSave}
+                            setEditing={setEditing}
+                        />
+                    ) : (
+                        <ProfileView 
+                            name={name}
+                            avatar={avatar}
+                            setEditing={setEditing}
+                        />
+                    )
+                ) : (
+                    <SessionsTab
+                        sessions={sessions}
+                        currentSession={currentSession}
+                        disableSession={disableSession}
+                    />
+                )}
             </div>
-          </div>
-        </>
-      ) : (
-        <form onSubmit={(e) => { e.preventDefault(); onSave() }} className="bg-white p-4 rounded shadow">
-          <label className="block mb-3">Имя
-            <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full border rounded px-3 py-2 mt-1" required />
-          </label>
-          <label className="block mb-4">Аватар
-            <input type="file" onChange={onFileChange} accept="image/*" />
-          </label>
-          {error && <div className="text-red-600 mb-2">{error}</div>}
-          <div className="flex space-x-3">
-            <button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded">{loading ? 'Сохраняем...' : 'Сохранить'}</button>
-            <button type="button" onClick={() => setEditing(false)} className="bg-gray-300 px-4 py-2 rounded">Отмена</button>
-          </div>
-        </form>
-      )}
-    </div>
-  )
+        </div>
+    );
 }
 
+function ProfileTab({ name, setName, avatar, setAvatar, onFileChange, onSave, setEditing }) {
+    return (
+        <div>
+            <h3 style={styles.h3}>Настройки профиля</h3>
+            <form onSubmit={(e) => { e.preventDefault(); onSave(); }}>
+                <div style={styles.formRow}>
+                    <label style={styles.label} htmlFor="name-input">Имя</label>
+                    <input id="name-input" type="text" value={name} onChange={e => setName(e.target.value)} style={styles.input} required />
+                </div>
+                <div style={{ ...styles.formRow, marginBottom: '24px' }}>
+                    <label style={styles.label} htmlFor="avatar-input">Аватар</label>
+                    <input onChange={onFileChange} id="avatar-input" type="file" accept="image/*" style={{...styles.input, ...styles.fileInput}} />
+                </div>
+                <div style={styles.formActions}>
+                    <button type="submit" style={{...styles.button, ...styles.buttonPrimary}}>Сохранить</button>
+                    <button type="button" onClick={() => setEditing(false)} style={{...styles.button, ...styles.buttonSecondary}}>Отмена</button>
+                </div>
+            </form>
+        </div>
+    );
+}
+
+function ProfileView({ name, avatar, setEditing }) {
+    return (
+        <div style={styles.profileView}>
+            <div style={styles.profileAvatar}>
+                {avatar ? <img src={avatar} alt="avatar" style={styles.profileAvatarImg} /> : <span style={styles.profileAvatarPlaceholder}>{name?.[0]}</span>}
+            </div>
+            <div>
+                <p style={{ ...styles.profileName, margin: 0 }}>{name}</p>
+                <button onClick={() => setEditing(true)} style={styles.profileEditButton}>Редактировать</button>
+            </div>
+        </div>
+    );
+}
+
+function SessionsTab({ sessions, currentSession, disableSession }) {
+    return (<div>
+         <h3 style={styles.h3}>Активные сессии</h3>
+         <ul style={{listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column-reverse'}}>
+            {sessions.map(session => {
+                const latest = session.history[session.history.length - 1];
+                return (
+                <li key={session.id} style={styles.sessionListItem}>
+                   <div>
+                     <p style={styles.sessionInfo}>{session.history.map(x => x.ip || x.val).join(', ')} {session.id === currentSession.id && <span style={styles.sessionCurrentBadge}> (текущая)</span>}</p>
+                     <p style={styles.sessionMeta}>Добавлена {TimeAgo({ unixTime: latest.at * 60000 })}</p>
+                   </div>
+                   {session.id !== currentSession.id && <button onClick={() => disableSession(session)} style={{...styles.button, ...styles.buttonDanger}}>Завершить</button>}
+                </li>
+            )})}
+         </ul>
+    </div>)
+}
