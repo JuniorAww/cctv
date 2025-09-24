@@ -71,7 +71,7 @@ function processQueue(serverName) {
 }
 
 function changeFile(serverName, action, link, localPath) {
-  if (/goutputstream|readme|license/i.test(localPath)) return;
+  if (/goutputstream|readme|license|database/i.test(localPath)) return;
   const queue = queues[serverName];
   if (queue.some(x => x[0] === action && x[2] === localPath)) return;
 

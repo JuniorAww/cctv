@@ -4,22 +4,37 @@ import API_URL from '../utils/API_URL'
 const TOKEN_EXPIRE_THRESHOLD = 2
 
 export default function useAuth() {
-    const [ logged, setLogged ] = useState(false)
+    const [ logged, setLogged ] = useState(undefined)
     const session = useRef(JSON.parse(localStorage.getItem('session') || '{}'))
     const [ token, setToken ] = useState(undefined)
     const tokenRef = useRef(null)
     
-    function updateToken(_token) {
-        setToken(_token)
-        tokenRef.current = _token
-        const [ payload, expiresAt ] = _token.split('.')
-        session.current = { expiresAt: Number(expiresAt), userId: NaN }
-        localStorage.setItem('session', JSON.stringify(session.current))
-        setLogged(true)
+    function updateToken(data) {
+        if (data) {
+            const _token = data.token;
+            const _session = data.session; // id
+            setToken(_token)
+            tokenRef.current = _token
+            const [ payload, expiresAt ] = _token.split('.')
+            session.current = { id: _session, expiresAt: Number(expiresAt), userId: NaN }
+            localStorage.setItem('session', JSON.stringify(session.current))
+            setLogged(true)
+        } else {
+            setToken(null);
+            tokenRef.current = null;
+            localStorage.setItem('session', null);
+            setLogged(false);
+        }
     }
 
     function isLoggedIn() {
         return tokenRef.current != null && session.current?.expiresAt > Date.now() / 60000
+    }
+    
+    // TODO
+    // сделать все функции getter'ами
+    function getSession() {
+        return JSON.parse(JSON.stringify(session));
     }
 
     async function refresh() {
@@ -30,7 +45,7 @@ export default function useAuth() {
             })
             const data = await res.json()
             if(data.token) {
-                updateToken(data.token)
+                updateToken(data)
                 return true
             }
             return false
@@ -64,7 +79,11 @@ export default function useAuth() {
     }
     
     useEffect(() => {
-        if(!session.current?.expiresAt) return setToken(null);
+        if(!session.current?.expiresAt) {
+            setToken(null);
+            setLogged(false);
+            return;
+        }
         
         const [ payload, expiresAtRaw ] = token?.split('.') || [ null, 0 ]
         
@@ -91,6 +110,6 @@ export default function useAuth() {
         return () => clearTimeout(timeout)
     }, [ token ])
 
-    return { token, logged, updateToken, api, unlogin }
+    return { token, logged, getSession, updateToken, api, unlogin }
 }
 

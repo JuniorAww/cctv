@@ -48,7 +48,7 @@ const handleMessages = async (ctx, next) => {
         await ctx.reply(`💫 <b>Упс! Испытываем проблемы.</b>\nПожалуйста, свяжитесь с разработчиком`)
         return null
     })
-    console.log(ctx.user)
+    console.log('user', ctx.user)
     if(ctx.user?.id === 1) handleAdmin(ctx)
     
     next() 

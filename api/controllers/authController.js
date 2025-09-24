@@ -35,8 +35,8 @@ const AuthController = new class AuthController {
         const receivedToken = extractCookies(request).refreshT
         console.log('received', receivedToken)
         
-        if(!receivedToken) return sendJson({ error: 'Wrong Cookie' })
-        if(!verify(receivedToken)) return sendJson({ error: 'Wrong Token' })
+        if (!receivedToken) return sendJson({ error: 'Wrong Cookie' })
+        if (!verify(receivedToken)) return sendJson({ error: 'Wrong Token' })
         
         const { exp, ses } = extract(receivedToken)
         
@@ -51,16 +51,28 @@ const AuthController = new class AuthController {
             }, 
             include: 'user'
         })
-        if(!session) return sendJson({ error: 'Wrong Session' })
+        if (!session) return sendJson({ error: 'Wrong Session' })
         
-        // TODO weird code
-        if(session.expiresAt < now + 60 * 24 * 7) {
-            session.expiresAt = rtea
-            await session.save()
+        let update = false;
+        
+        // TODO add ip when logging in/signing in
+        if (!session.history.find(entry => entry.ip === request.ip)) {
+            console.log('new IP for ' + session.user.id + ': ' + request.ip)
+            session.history.push({ at: now, ip: request.ip });
+            session.changed('history', true);
+            update = true;
         }
-      
+        
+        // TODO fix this weird code
+        if (session.expiresAt < now + 60 * 24 * 7) {
+            session.expiresAt = rtea
+            update = true;
+        }
+        
+        if (update) await session.save();
+        
         // TODO more detailed info
-        if(session === null) return sendJson({ error: "Token Expired" })
+        if (session === null) return sendJson({ error: "Token Expired" })
         
         return sendTokens(session.user, session, atea, rtea)
     }
@@ -79,11 +91,11 @@ const AuthController = new class AuthController {
         
         await resetRateLimit(request.ip, "login")
         
-        return await this.createSession(user, fingerprint)
+        return await this.createSession(user, fingerprint, request.ip)
     }
     
     // TODO
-    static async sendCode(request) {
+    /*static async sendCode(request) {
         const { email, fingerprint } = await request.json()
         const ip = getIp(request)
 
@@ -91,6 +103,7 @@ const AuthController = new class AuthController {
         if (!user) {
             if (!(await checkRateLimit(ip, 'sendcode'))) return sendJson({ error: 'Too many attempts, try later' })
             return sendJson({ error: 'User not found' })
+            // user not found = vuln
         }
 
         await resetRateLimit(ip, 'sendcode')
@@ -115,12 +128,12 @@ const AuthController = new class AuthController {
         const user = await User.findByPk(payload.userId, { include: [WebAccount] })
 
         return await createSession(user, fingerprint)
-    }
+    }*/
     
     /*
     // Авторизация (получение access и refresh)
     */
-    async createSession(user, fingerprint) {
+    async createSession(user, fingerprint, ip) {
         const now = Math.floor(Date.now() / 60000)
         const [ atea, rtea ] = getTokenExpirations(now)
         
@@ -129,10 +142,12 @@ const AuthController = new class AuthController {
             expiresAt: rtea,
             history: [{
                 at: now,
+                ip,
                 val: fingerprint.slice(0, 32)
-            }] // TODO fingerprint + IP
+            }] // TODO extensive device info
         })
         // TODO ratelimits
+        console.log(ip)
         
         return sendTokens(user, session, atea, rtea)
     }
@@ -248,7 +263,7 @@ const sendTokens = (user, session, atea, rtea) => {
 
     const userEnt = { id: user.id }
     
-    return sendJson({ success: true, token: accessT }, headers)
+    return sendJson({ success: true, session: session.id, token: accessT }, headers)
 }
 
 const sendJson = (json, headers) => {

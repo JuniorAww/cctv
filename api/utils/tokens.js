@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto'
 import Session from '../db/models/Session'
 
 // TODO change signature storage (add initial secret password)
@@ -9,16 +10,23 @@ const getMediaToken = (groupId, unixMinute) => {
     if(unixMinute === undefined) unixMinute = getNow()
     const payload = `${groupId}:${unixMinute}:${SECRET}`
     const hash = new Bun.CryptoHasher("sha256").update(payload).digest("hex")
-    return `${groupId}-${unixMinute}-${hash.slice(0, 16)}`
+    return `${groupId}-${unixMinute}-${hash.slice(0, 32)}`
 }
 
 const verifyMediaToken = (token, groupId) => {
     const [ _groupId, _unixMinute, _signature ] = token.split('-')
-    if(_signature?.length !== 16 || !Number(_unixMinute)) return false
+    if(_signature?.length !== 32 || !Number(_unixMinute)) return false
     const now = getNow()
     if(now - _unixMinute > 2) return false
     const _token = getMediaToken(groupId, _unixMinute)
-    return _token === token
+    return safeEqual(token, _token)
+    // timing attack fixed (?)
+}
+
+const safeEqual = (a, b) => {
+    const bufA = Buffer.from(a)
+    const bufB = Buffer.from(b)
+    return bufA.length === bufB.length && timingSafeEqual(bufA, bufB)
 }
 
 // TODO limit cache
@@ -48,13 +56,12 @@ function _verify(payload, expiresAt, signature) {
     const fullPayload = `${payload}.${expiresAt}`
     console.log(fullPayload)
     
-    
     const cachedSig = sigCache.get(fullPayload)
     console.log(cachedSig)
-    if(cachedSig) return cachedSig[0] === signature
+    if(cachedSig) return safeEqual(cachedSig[0], signature)
     
     const notCachedSig = sign(fullPayload)
-    const match = notCachedSig === signature
+    const match = safeEqual(notCachedSig, signature)
     if(match) {
         sigCache.set(fullPayload, [ notCachedSig, Number(expiresAt) ])
         return true
