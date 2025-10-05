@@ -1,19 +1,29 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback, memo } from "react"
 import styles from '../styles'
 
-export default function VideoPlayer({ api, group, token, url, ptzEndpoint }) {
-  const videoRef = useRef(null);
+const VideoPlayer = ({ api, groupId, token, url, ptzEndpoint }) => {
   const hlsRef = useRef(null);
+  const videoRef = useRef(null);
+  const containerRef = useRef(null);
+  /* re-rendering fix */
+  const tokenRef = useRef(token);
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [controlsVisible, setControlsVisible] = useState(true);
-  const [latency, setLatency] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
-
+  const [ isPlaying, setIsPlaying ] = useState(false);
+  const [ isMuted, setIsMuted ] = useState(true);
+  const [ isFullscreen, setIsFullscreen ] = useState(false);
+  const [ controlsVisible, setControlsVisible ] = useState(true);
+  const [ latency, setLatency ] = useState(0);
+  const [ isMobile, setIsMobile ] = useState(false);
+  const [ isLoading, setIsLoading ] = useState(true);
+  const [ autoplayBlocked, setAutoplayBlocked ] = useState(false);
+  const [ transform, setTransform ] = useState({ scale: 1, x: 0, y: 0 });
+  
+  const gestureState = useRef({
+    pointers: new Map(),
+    lastMidpoint: null,
+    lastDistance: 0,
+  }).current;
+  
   useEffect(() => {
     setIsMobile(/Mobi|Android/i.test(navigator.userAgent));
     
@@ -31,7 +41,7 @@ export default function VideoPlayer({ api, group, token, url, ptzEndpoint }) {
         liveSyncDuration: 1,
         liveMaxLatencyDuration: 7,
         maxLiveSyncPlaybackRate: 1.5,
-        xhrSetup: (xhr) => xhr.setRequestHeader("Authorization", "Bearer " + token)
+        xhrSetup: (xhr) => xhr.setRequestHeader("Authorization", "Bearer " + tokenRef.current)
       });
       // Corrected the URL to include the manifest file, as in the original code
       hls.loadSource(url + "/index.m3u8"); 
@@ -41,7 +51,11 @@ export default function VideoPlayer({ api, group, token, url, ptzEndpoint }) {
     } else if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
       videoRef.current.src = url + "/index.m3u8";
     }
-  }, [url, token]);
+  }, [ url ]);
+  
+  useEffect(() => {
+    tokenRef.current = token;
+  }, [ token ])
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -67,13 +81,14 @@ export default function VideoPlayer({ api, group, token, url, ptzEndpoint }) {
       await document.exitFullscreen();
     }
   };
-
+  
+  /* PTZ */
   const sendPTZ = async (action) => {
     if (!ptzEndpoint) return;
     try {
       await api(ptzEndpoint, true, {
         method: "POST",
-        body: JSON.stringify({ groupId: group, action }),
+        body: JSON.stringify({ groupId: groupId, action }),
       });
     } catch (e) {
       console.error("PTZ error", e);
@@ -137,10 +152,121 @@ export default function VideoPlayer({ api, group, token, url, ptzEndpoint }) {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
+  
+  
+  /* Simple Zoom */
+  const getClampedTransform = (newTransform) => {
+    const { scale, x, y } = newTransform;
+    const container = containerRef.current;
+    if (!container) return newTransform;
+
+    const containerRect = container.getBoundingClientRect();
+
+    const maxX = Math.max(0, (containerRect.width * scale - containerRect.width) / 2);
+    const maxY = Math.max(0, (containerRect.height * scale - containerRect.height) / 2);
+
+    return {
+      scale,
+      x: Math.max(-maxX, Math.min(maxX, x)),
+      y: Math.max(-maxY, Math.min(maxY, y)),
+    };
+  };
+
+  const onPointerDown = useCallback((e) => {
+    e.target.setPointerCapture(e.pointerId);
+    gestureState.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  }, [gestureState]);
+
+  const onPointerUp = useCallback((e) => {
+    e.target.releasePointerCapture(e.pointerId);
+    gestureState.pointers.delete(e.pointerId);
+    if (gestureState.pointers.size < 2) {
+      gestureState.lastDistance = 0;
+    }
+    if (gestureState.pointers.size < 1) {
+      gestureState.lastMidpoint = null;
+    }
+  }, [gestureState]);
+
+  const onPointerMove = useCallback((e) => {
+    if (gestureState.pointers.size === 0) return;
+
+    gestureState.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pointers = Array.from(gestureState.pointers.values());
+
+    if (pointers.length === 1) {
+      if (!gestureState.lastMidpoint) {
+        gestureState.lastMidpoint = { x: pointers[0].x, y: pointers[0].y };
+        return;
+      }
+      const dx = pointers[0].x - gestureState.lastMidpoint.x;
+      const dy = pointers[0].y - gestureState.lastMidpoint.y;
+
+      setTransform(prev => getClampedTransform({ ...prev, x: prev.x + dx, y: prev.y + dy }));
+      gestureState.lastMidpoint = { x: pointers[0].x, y: pointers[0].y };
+
+    } else if (pointers.length === 2) {
+      const [p1, p2] = pointers;
+      const distance = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+
+      if (gestureState.lastDistance > 0) {
+        const scaleChange = distance / gestureState.lastDistance;
+        setTransform(prev => {
+          const newScale = Math.min(Math.max(1, prev.scale * scaleChange), 4);
+          return getClampedTransform({ ...prev, scale: newScale });
+        });
+      }
+      gestureState.lastDistance = distance;
+    }
+  }, [gestureState]);
+  
+  const onWheel = useCallback((e) => {
+    e.preventDefault();
+    const delta = e.deltaY * -0.005;
+    setTransform(prev => {
+      const newScale = Math.min(Math.max(1, prev.scale + delta), 4);
+      const newTransform = { ...prev, scale: newScale };
+      if (newScale === 1) {
+        newTransform.x = 0;
+        newTransform.y = 0;
+      }
+      return getClampedTransform(newTransform);
+    });
+  }, []);
+  
+  const onLostPointerCapture = useCallback((e) => {
+      gestureState.pointers.delete(e.pointerId);
+  }, [gestureState]);
+  
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    container.addEventListener('pointerdown', onPointerDown);
+    container.addEventListener('pointerup', onPointerUp);
+    container.addEventListener('pointerleave', onPointerUp);
+    container.addEventListener('pointermove', onPointerMove);
+    container.addEventListener('lostpointercapture', onLostPointerCapture);
+    container.addEventListener('wheel', onWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('pointerdown', onPointerDown);
+      container.removeEventListener('pointerup', onPointerUp);
+      container.removeEventListener('pointerleave', onPointerUp);
+      container.removeEventListener('pointermove', onPointerMove);
+      container.removeEventListener('lostpointercapture', onLostPointerCapture);
+      container.removeEventListener('wheel', onWheel);
+    };
+  }, [onPointerDown, onPointerUp, onPointerMove, onWheel, onLostPointerCapture]);
+  
+  const videoStyles = {
+    ...styles.videoElement,
+    transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+  };
 
   return (
-    <div style={styles.videoPlayerContainer}>
-      <video ref={videoRef} muted={isMuted} playsInline style={styles.videoElement} />
+    <div ref={containerRef} style={styles.videoPlayerContainer}>
+      <video ref={videoRef} muted={isMuted} playsInline style={videoStyles} />
 
       {(isLoading || autoplayBlocked) && (
         <div style={styles.videoOverlay}>
@@ -183,6 +309,8 @@ export default function VideoPlayer({ api, group, token, url, ptzEndpoint }) {
     </div>
   );
 }
+
+export default memo(VideoPlayer)
 
 const PlayIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>;
 const PauseIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>;

@@ -18,7 +18,7 @@ export default function App() {
     const [ groups, setGroups ] = useState(null);
     const [ users, setUsers ] = useState(null);
     const [ sessions, setSessions ] = useState(null);
-    const [ cameras, setCameras ] = useState(null);
+    const [ cameras, setCameras ] = useState([]);
     const [ currentPath, setCurrentPath ] = useState('/');
     const [ isMobile, setIsMobile ] = useState(window.innerWidth < 768);
     const [ isSidebarOpen, setSidebarOpen ] = useState(false);
@@ -121,6 +121,8 @@ export default function App() {
         { href: '/participants', label: 'Участники' }, { href: '/settings', label: 'Настройки' },
     ];
     
+    console.log(stage)
+    
     if (stage === null) {
         return <div style={styles.authContainer}><p>Загрузка...</p></div>; // Or a proper loader
     }
@@ -142,6 +144,16 @@ export default function App() {
     
     return (
         <div style={styles.appContainer}>
+            {isMobile && (
+                <div
+                    style={{
+                        ...styles.overlay,
+                        opacity: isSidebarOpen ? 1 : 0,
+                        pointerEvents: isSidebarOpen ? 'auto' : 'none',
+                    }}
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
             <aside style={sidebarStyle}>
                 <h1 style={styles.sidebarTitle}>CCTV System</h1>
                 <nav>
@@ -177,8 +189,8 @@ export default function App() {
                 <main style={isMobile ? {...styles.pageContent, ...styles.pageContentMobile} : styles.pageContent}>
                     <div style={isMobile ? {...styles.pageWrapper, ...styles.pageWrapperMobile} : styles.pageWrapper}>
                         <Router onChange={e => setCurrentPath(e.url.split('?')[0])}>
-                            <Dashboard path="/" users={users || []} cameras={cameras || []} />
-                            <Cameras path="/cameras" api={api} group={group} cameras={cameras || []} isMobile={isMobile} />
+                            <Dashboard path="/" users={users || []} cameras={cameras} />
+                            <Cameras path="/cameras" api={api} group={group} cameras={cameras} isMobile={isMobile} />
                             <Recordings path="/recordings" />
                             <Participants path="/participants" users={users || []} />
                             <Settings api={api} group={group} groups={groups} sessions={sessions} setSessions={setSessions} getSession={getSession} onGroupUserChange={onGroupUserChange} path="/settings" />
