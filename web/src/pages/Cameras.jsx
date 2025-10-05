@@ -3,24 +3,21 @@ import VideoPlayer from '../components/VideoPlayer'
 import styles from '../styles'
 
 export default function Cameras({ cameras, group, api, isMobile }) {
-    const [selectedCount, setSelectedCount] = useState(1);
-    const [selectedCams, setSelectedCams] = useState(cameras.length > 0 ? [cameras[0].id] : []);
+    const [ selectedCount, setSelectedCount ] = useState(1);
+    const [ selectedCams, setSelectedCams ] = useState(cameras.length > 0 ? [ cameras[0].id ] : []);
     
-    useEffect(() => {
-        setSelectedCams(cameras.length > 0 ? [cameras[0].id] : []);
-    }, [cameras]);
-
     const toggleCam = (id) => {
       if (selectedCams.includes(id)) {
         setSelectedCams(selectedCams.filter((x) => x !== id))
       } else {
-        if (selectedCams.length < selectedCount) {
-          setSelectedCams([...selectedCams, id])
+        /* На моб. устройствах нет сетки */
+        if (isMobile || selectedCams.length < selectedCount) {
+          setSelectedCams([ ...selectedCams, id ])
         }
         else {
           const cams = selectedCams
           cams.splice(0, 1)
-          setSelectedCams([...cams, id])
+          setSelectedCams([ ...cams, id ])
         }
       }
   }
@@ -30,14 +27,14 @@ export default function Cameras({ cameras, group, api, isMobile }) {
         if (selectedCount === 2) return { ...styles.cameraGridBase, ...styles.grid2 };
         if (selectedCount === 4) return { ...styles.cameraGridBase, ...styles.grid4 };
         return { ...styles.cameraGridBase, ...styles.grid1 };
-    }, [selectedCount]);
+    }, [ selectedCount ]);
 
     return (
         <div>
-            <div style={{ ...styles.card, marginBottom: '24px' }}>
+            <div style={{ ...styles.card, marginBottom: '24px',  }}>
                 {!isMobile && (
-                    <div style={{ marginBottom: '24px' }}>
-                        <h3 style={styles.h3}>Сетка</h3>
+                    <div style={{ ...styles.flexColumnGap10, marginBottom: '24px' }}>
+                        <h3 style={styles.h3}>Размер сетки</h3>
                         <div style={styles.cameraControls}>
                             {[1, 2, 4].map((count) => (
                                 <button key={count} onClick={() => setSelectedCount(count)} style={{ ...styles.button, ...(selectedCount === count ? styles.buttonPrimary : styles.buttonSecondary) }}>
@@ -47,9 +44,9 @@ export default function Cameras({ cameras, group, api, isMobile }) {
                         </div>
                     </div>
                 )}
-                <div>
+                <div style={styles.flexColumnGap10}>
                     <h3 style={styles.h3}>
-                        Выберите камеры {isMobile ? `(${selectedCams.length})` : `(${selectedCams.length}/${selectedCount})`}
+                        Камеры {isMobile ? "" : `(${selectedCams.length}/${selectedCount})`}
                     </h3>
                     <div style={styles.cameraSelector}>
                         {(cameras || []).map(({ id, name }) => (
@@ -62,7 +59,7 @@ export default function Cameras({ cameras, group, api, isMobile }) {
             </div>
 
             {isMobile ? (
-                <div style={styles.mobileCameraList}>
+                <div style={{ ...styles.mobileCameraList, ...styles.flexColumnGap10 }}>
                     {selectedCams.map(id => {
                         const cam = cameras.find(c => c.id === id);
                         if (!cam) return null;
@@ -79,9 +76,11 @@ export default function Cameras({ cameras, group, api, isMobile }) {
                 <div style={gridLayout}>
                     {selectedCams.map(id => {
                         const cam = cameras.find(c => c.id === id);
+                        console.log('cam ' + cam)
                         if (!cam) return null;
                         const source = cam.media?.find(x => x.type === 'hls');
                         const ptz = cam.media?.find(x => x.type === 'ptz') ? `cameras/${cam.id}/ptz` : null;
+                        console.log('Rerendering camera')
                         return (
                            <div key={id} style={styles.cameraGridItem}>
                                 <VideoPlayer api={api} group={group} token={cam.token} url={source?.url} ptzEndpoint={ptz} />

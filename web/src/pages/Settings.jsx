@@ -99,6 +99,7 @@ export default function Settings({ api, groups, group, sessions, setSessions, ge
             <div style={styles.settingsTabs}>
                 <button onClick={() => setActiveTab('profile')} style={{...styles.settingsTabButton, ...(activeTab === 'profile' ? styles.settingsTabButtonActive : styles.settingsTabButtonInactive)}}>Профиль</button>
                 <button onClick={() => setActiveTab('sessions')} style={{...styles.settingsTabButton, ...(activeTab === 'sessions' ? styles.settingsTabButtonActive : styles.settingsTabButtonInactive)}}>Сессии</button>
+                {/*<button onClick={() => setActiveTab('settings')} style={{...styles.settingsTabButton, ...(activeTab === 'settings' ? styles.settingsTabButtonActive : styles.settingsTabButtonInactive)}}>Внешний вид</button>*/}
             </div>
             <div style={styles.card}>
                 {activeTab === 'profile' ? (
@@ -119,13 +120,15 @@ export default function Settings({ api, groups, group, sessions, setSessions, ge
                             setEditing={setEditing}
                         />
                     )
-                ) : (
+                ) : activeTab === 'sessions' ? (
                     <SessionsTab
                         sessions={sessions}
                         currentSession={currentSession}
                         disableSession={disableSession}
                     />
-                )}
+                ) : activeTab === 'settings' ? (
+                    <StylesTab/>
+                ) : null}
             </div>
         </div>
     );
@@ -135,14 +138,15 @@ function ProfileTab({ name, setName, avatar, setAvatar, onFileChange, onSave, se
     return (
         <div>
             <h3 style={styles.h3}>Настройки профиля</h3>
-            <form onSubmit={(e) => { e.preventDefault(); onSave(); }}>
+            <form style={{ margin: '15px 0 0 0' }} onSubmit={(e) => { e.preventDefault(); onSave(); }}>
                 <div style={styles.formRow}>
                     <label style={styles.label} htmlFor="name-input">Имя</label>
                     <input id="name-input" type="text" value={name} onChange={e => setName(e.target.value)} style={styles.input} required />
                 </div>
                 <div style={{ ...styles.formRow, marginBottom: '24px' }}>
-                    <label style={styles.label} htmlFor="avatar-input">Аватар</label>
-                    <input onChange={onFileChange} id="avatar-input" type="file" accept="image/*" style={{...styles.input, ...styles.fileInput}} />
+                    <label style={styles.label}>Аватар</label>
+                    <input onChange={onFileChange} type="file" accept="image/*" id="avatar-input" style="display:none;"/>
+                    <label style={{ ...styles.input, ...styles.fileInput }} for="avatar-input">Нажмите, чтобы выбрать фото</label>
                 </div>
                 <div style={styles.formActions}>
                     <button type="submit" style={{...styles.button, ...styles.buttonPrimary}}>Сохранить</button>
