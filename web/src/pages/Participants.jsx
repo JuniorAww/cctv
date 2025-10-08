@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react'
+import Avatar from '../components/Avatar'
 import TimeAgo from '../utils/timeAgo'
 import styles from '../styles'
 
 export default function Participants({ users }) {
     const sortedUsers = useMemo(() => [...users].sort((a, b) => b.lastSeen - a.lastSeen), [users]);
+    
     return (
         <div style={{maxWidth: '800px', margin: '0 auto'}}>
             <div style={styles.card}>
@@ -12,7 +14,7 @@ export default function Participants({ users }) {
                         <li key={id} style={styles.participantListItem}>
                             <div style={styles.participantAvatarContainer}>
                                 {avatar ? (
-                                    <img src={avatar} alt={name} style={styles.participantAvatarImage} />
+                                    <Avatar src={avatar} alt={name}/>
                                 ) : (
                                     <div style={styles.participantAvatarPlaceholder}>{name[0]}</div>
                                 )}

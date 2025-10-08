@@ -18,7 +18,7 @@ const darkTheme = {
     headerMobile: { padding: '16px' },
     
     // Auth Page
-    authContainer: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '24px', background: 'linear-gradient(135deg, #1a202c 0%, #2d3748 100%)' },
+    authContainer: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'linear-gradient(135deg, #1a202c 0%, #2d3748 100%)' },
     authCard: { backgroundColor: '#2d3748', padding: '32px', borderRadius: '16px', border: '1px solid #4a5568', width: '100%', maxWidth: '400px', transition: 'opacity 0.1s ease-in-out' },
     authTitle: { fontSize: '1.8rem', fontWeight: 'bold', textAlign: 'center', color: '#fff', margin: '0' },
     authSubtitle: { textAlign: 'center', color: '#a0aec0', marginBottom: '24px' },
@@ -55,6 +55,7 @@ const darkTheme = {
     fileInput: { padding: '8px' },
     label: { display: 'block', marginBottom: '8px', color: '#a0aec0', fontWeight: '500' },
     flexColumnGap10: { display: 'flex', flexDirection: 'column', gap: '10px' },
+    noDecor: { textDecoration: 'none' },
     
     // Dashboard
     dashboardGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' },
@@ -114,34 +115,14 @@ cameraGridBase: { display: 'grid', gap: '16px', width: '100%' },
     sessionInfo: { fontWeight: '600', color: '#fff' },
     sessionMeta: { color: '#a0aec0', fontSize: '0.9rem' },
     sessionCurrentBadge: { color: '#48bb78', fontSize: '0.9rem' },
-  
-    themeContainer: {
-        display: 'flex',
-        gap: '16px',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-        background: '#f5f5f5',
-        borderRadius: '12px',
-        boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+    
+    // New stuff
+    themeContainer: { display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'center', padding: '20px', background: '#f5f5f5', borderRadius: '12px', boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
     },
-    themeButtonBase: {
-        padding: '10px 18px',
-        borderRadius: '8px',
-        fontWeight: '500',
-        cursor: 'pointer',
-        transition: 'all 0.2s ease-in-out',
+    themeButtonBase: { padding: '10px 18px', borderRadius: '8px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease-in-out',
     },
-    themeButtonLight: {
-        background: '#ffffff',
-        color: '#333',
-        border: '1px solid #ccc',
-    },
-    themeButtonDark: {
-        background: '#1e1e1e',
-        color: '#fff',
-        border: '1px solid #444',
-    },
+    themeButtonLight: { background: '#ffffff', color: '#333', border: '1px solid #ccc', },
+    themeButtonDark: { background: '#1e1e1e', color: '#fff', border: '1px solid #444', },
 };
 
 /* yes */
@@ -163,7 +144,7 @@ const lightTheme = {
     headerMobile: { padding: '16px' },
 
     // Auth Page
-    authContainer: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '24px', background: 'linear-gradient(135deg, #ffedd5 0%, #fde68a 100%)' },
+    authContainer: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'linear-gradient(135deg, #ffedd5 0%, #fde68a 100%)' },
     authCard: { backgroundColor: '#fff7ed', padding: '32px', borderRadius: '16px', border: '1px solid #fed7aa', width: '100%', maxWidth: '400px', transition: 'opacity 0.1s ease-in-out' },
     authTitle: { fontSize: '1.8rem', fontWeight: 'bold', textAlign: 'center', color: '#7c2d12', margin: '0' },
     authSubtitle: { textAlign: 'center', color: '#b45309', marginBottom: '24px' },
@@ -184,7 +165,7 @@ const lightTheme = {
     modalActions: { display: 'flex', gap: '12px', marginTop: '16px' },
 
     // Components
-    sidebarTitle: { fontSize: '1.5rem', fontWeight: 'bold', color: '#7c2d12', marginBottom: '32px' },
+    sidebarTitle: { fontSize: '1.5rem', fontWeight: 'bold', color: '#7c2d12', marginBottom: '32px', pointerEvents: 'none' },
     navLink: { display: 'flex', alignItems: 'center', padding: '12px 16px', borderRadius: '8px', textDecoration: 'none', color: '#b45309', marginBottom: '8px', transition: 'background-color 0.2s, color 0.2s' },
     navLinkActive: { backgroundColor: '#f97316', color: '#fff' },
     headerTitle: { fontSize: '1.8rem', margin: '0 0 5px 0', fontWeight: 'bold', color: '#7c2d12' },

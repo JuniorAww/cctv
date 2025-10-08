@@ -1,9 +1,12 @@
 import React, { useState, useMemo } from 'react'
+import Avatar from '../components/Avatar'
 import TimeAgo from '../utils/timeAgo'
 import styles from '../styles'
 
 export default function Settings({ api, groups, group, sessions, setSessions, getSession, onGroupUserChange }) {
   const groupData = useMemo(() => groups.find(x => x.id === group), [ groups, group ])
+  if (!groupData.member) alert("Ошибка получения данных!")
+  
   const [ name, setName ] = useState(groupData.member.name)
   const [ avatar, setAvatar ] = useState(groupData.member?.avatar || null)
   const [ activeTab, setActiveTab ] = useState('profile');
@@ -25,7 +28,7 @@ export default function Settings({ api, groups, group, sessions, setSessions, ge
 
       // 2. Загрузка аватара (если есть)
       let avatarUrl = avatar
-      console.log(avatar);
+      
       if (avatar && avatar.startsWith('data:image')) {
         const blob = await (await fetch(avatar)).blob()
         const form = new FormData()
@@ -144,13 +147,13 @@ function ProfileTab({ name, setName, avatar, setAvatar, onFileChange, onSave, se
                     <input id="name-input" type="text" value={name} onChange={e => setName(e.target.value)} style={styles.input} required />
                 </div>
                 <div style={{ ...styles.formRow, marginBottom: '24px' }}>
-                    <label style={styles.label}>Аватар</label>
-                    <input onChange={onFileChange} type="file" accept="image/*" id="avatar-input" style="display:none;"/>
+                    <label style={ styles.label }>Аватар</label>
+                    <input onChange={ onFileChange } type="file" accept="image/*" id="avatar-input" style="display:none;"/>
                     <label style={{ ...styles.input, ...styles.fileInput }} for="avatar-input">Нажмите, чтобы выбрать фото</label>
                 </div>
                 <div style={styles.formActions}>
-                    <button type="submit" style={{...styles.button, ...styles.buttonPrimary}}>Сохранить</button>
-                    <button type="button" onClick={() => setEditing(false)} style={{...styles.button, ...styles.buttonSecondary}}>Отмена</button>
+                    <button type="submit" style={{ ...styles.button, ...styles.buttonPrimary }}>Сохранить</button>
+                    <button type="button" onClick={() => setEditing(false)} style={{ ...styles.button, ...styles.buttonSecondary }}>Отмена</button>
                 </div>
             </form>
         </div>
@@ -161,11 +164,11 @@ function ProfileView({ name, avatar, setEditing }) {
     return (
         <div style={styles.profileView}>
             <div style={styles.profileAvatar}>
-                {avatar ? <img src={avatar} alt="avatar" style={styles.profileAvatarImg} /> : <span style={styles.profileAvatarPlaceholder}>{name?.[0]}</span>}
+                <Avatar src={avatar} alt="avatar"/>
             </div>
             <div>
                 <p style={{ ...styles.profileName, margin: 0 }}>{name}</p>
-                <button onClick={() => setEditing(true)} style={styles.profileEditButton}>Редактировать</button>
+                <button onClick={() => setEditing(true)} style={{ ...styles.profileEditButton, ...styles.noDecor }}>Редактировать</button>
             </div>
         </div>
     );

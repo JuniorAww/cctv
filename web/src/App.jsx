@@ -22,8 +22,7 @@ export default function App() {
     const [ currentPath, setCurrentPath ] = useState('/');
     const [ isMobile, setIsMobile ] = useState(window.innerWidth < 768);
     const [ isSidebarOpen, setSidebarOpen ] = useState(false);
-
-    // Initial check for logged in state
+    
     useEffect(() => {
         if (logged === undefined) return;
         if (!logged) {
@@ -59,8 +58,7 @@ export default function App() {
             init();
         }
     }, [ logged ]);
-
-    // Fetch group data when group or token changes
+    
     useEffect(() => {
         if (!group || !token || !logged) return;
         
@@ -105,7 +103,7 @@ export default function App() {
 
     const onLogin = (data) => {
         updateToken(data);
-        setStage(null); // Let the useEffect for 'logged' handle the transition
+        setStage(null);
     };
 
     const handleNavClick = (path) => {
@@ -124,7 +122,7 @@ export default function App() {
     console.log(stage)
     
     if (stage === null) {
-        return <div style={styles.authContainer}><p>Загрузка...</p></div>; // Or a proper loader
+        return <div style={styles.authContainer}><h2 style={styles.h2}>Загрузка...</h2></div>;
     }
     
     if (stage === 'auth') {
@@ -135,11 +133,18 @@ export default function App() {
     
     const onGroupUserChange = newMember => {
         const _users = JSON.parse(JSON.stringify(users))
-        console.log(users, newMember)
-        const member = _users.find(x => x.id === newMember.id)
-        member.name = newMember.name
-        member.avatar = newMember.avatar
-        setUsers(_users)
+        const member = _users.find(x => x.id === newMember.id);
+        member.name = newMember.name;
+        if (newMember.avatar) member.avatar = newMember.avatar;
+        setUsers(_users);
+        
+        const _groups = JSON.parse(JSON.stringify(groups))
+        const _member = _groups.find(x => x.id === group).member
+        _member.name = newMember.name;
+        if (newMember.avatar) _member.avatar = newMember.avatar;
+        setGroups(_groups);
+        
+        console.log(_groups, _users)
     }
     
     return (
