@@ -23,6 +23,21 @@ export default function Cameras({ cameras, group, api, isMobile }) {
   }
     
     const gridLayout = useMemo(() => {
+        if(selectedCams.length > selectedCount) setSelectedCams(selectedCams.slice(0, selectedCount))
+        else {
+            let diff = selectedCount - selectedCams.length;
+            console.log(diff)
+            const camIds = cameras.map(x => x.id)
+            const addedCams = [];
+            for (const camId of camIds) {
+                if (diff < 1) break;
+                if (selectedCams.find(x => x == camId)) continue;
+                addedCams.push(camId)
+                diff -= 1;
+            }
+            setSelectedCams([ ...selectedCams, ...addedCams ])
+        }
+        
         if (selectedCount === 1) return { ...styles.cameraGridBase, ...styles.grid1 };
         if (selectedCount === 2) return { ...styles.cameraGridBase, ...styles.grid2 };
         if (selectedCount === 4) return { ...styles.cameraGridBase, ...styles.grid4 };

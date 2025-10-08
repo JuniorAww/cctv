@@ -167,7 +167,7 @@ function AuthForm({ api, group, onLogin, isRegister }) {
                 </div>
                 {error && <p style={styles.authError}>{error}</p>}
                 <button type="submit" disabled={loading} style={{...styles.button, ...styles.buttonPrimary, width: '100%', marginTop: '8px'}}>
-                    {loading ? '' : (isRegister ? 'Зарегистрироваться' : 'Войти')}
+                    {loading ? 'Загрузка...' : (isRegister ? 'Зарегистрироваться' : 'Войти')}
                 </button>
                 <p style={styles.fingerprintText}>{fp ? fp.slice(0, 32) : '...генерируется'}</p>
             </form>
