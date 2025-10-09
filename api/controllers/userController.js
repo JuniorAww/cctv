@@ -20,7 +20,6 @@ const UserController = new class UserController {
         if(request.access !== "ALL") return new Response()
         const { telegramId, name, tag } = await request.json()
         
-        console.log(telegramId)
         const tgAcc = await TelegramAccount.findOne({
             where: { telegramId },
             attributes: [ 'userId' ]

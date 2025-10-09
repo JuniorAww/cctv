@@ -8,7 +8,6 @@ const GroupUserController = new class GroupUserController {
     async addToGroup(request, groupId) {
         if(request.access !== "ALL") return new Response()
         try {
-            console.log('kitty')
             const { userId, name } = await request.json()
             const user = await User.findOne({ where: { id: userId } })
             await user.addGroup(groupId, {
@@ -62,7 +61,6 @@ const GroupUserController = new class GroupUserController {
         await Bun.write(filePath, new Uint8Array(arrayBuffer))
         
         await groupUser.update({ avatar: `avatars/${filename}` })
-        console.log('set avatar')
         
         return sendJson({ url: `avatars/${filename}` })
     }
