@@ -33,7 +33,6 @@ const AuthController = new class AuthController {
     */
     async refresh(request, url) {
         const receivedToken = extractCookies(request).refreshT
-        console.log('received', receivedToken)
         
         if (!receivedToken) return sendJson({ error: 'Wrong Cookie' })
         if (!verify(receivedToken)) return sendJson({ error: 'Wrong Token' })
@@ -147,7 +146,6 @@ const AuthController = new class AuthController {
             }] // TODO extensive device info
         })
         // TODO ratelimits
-        console.log(ip)
         
         return sendTokens(user, session, atea, rtea)
     }
@@ -157,7 +155,6 @@ const AuthController = new class AuthController {
     */
     async logout(request) {
         const receivedToken = extractCookies(request).refreshT
-        console.log(receivedToken)
         
         if(!receivedToken) return sendJson({ error: 'Wrong Cookie' })
         if(!verify(receivedToken)) return sendJson({ error: 'Wrong Token' })
@@ -235,7 +232,6 @@ const AuthController = new class AuthController {
             }
             
             request.userId = usr
-            console.log('usr', usr)
             
             // TODO error is being handled in wrong place (should not be in authenticate function)
             return controllerEndpoint(request, args)

@@ -26,13 +26,11 @@ const InviteController = new class InviteController {
             expiresAt: Math.floor(Date.now() / 60000) + 30
         })
         const invite = inviteEntity.get({ plain: true })
-        console.log(invite)
         
         return new Response(JSON.stringify(invite), { headers: { 'Content-Type': 'application/json' } })
     }
     
     async accept(nonce) {
-        console.log(nonce)
         if (!nonce || nonce.length !== NONCE_SIZE) 
             return sendJson({ error: 'Invalid nonce' })
 

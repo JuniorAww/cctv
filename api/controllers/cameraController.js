@@ -85,7 +85,7 @@ const CameraController = new class CameraController {
         } else {
             body.source = config
         }
-        console.log(mediaName, body)
+        
         await fetch(baseUrl + "config/paths/add/" + mediaName, { method: 'POST', body: JSON.stringify(body) })
         
         return sendJson(camera.dataValues)
@@ -94,7 +94,7 @@ const CameraController = new class CameraController {
     async delete(request, id) {
         if(request.access !== "ALL") return new Response()
         const camera = await Camera.findOne({ where: { id }, include: 'group' })
-        console.log(camera.id)
+        
         await camera.destroy()
         await fetch(baseUrl + "config/paths/delete/" + camera.group.id + '/' + camera.id, { method: 'DELETE' })
         return sendJson({ success: true })
@@ -127,8 +127,8 @@ const CameraController = new class CameraController {
             y: action === 'down' ? -0.1 : action === 'up' ? 0.1 : 0,
             zoom: 0
         }
-        console.log(velocity)
-        // TODO only master
+        
+        // TODO only for master
         // TODO specify ip in "config"
         try {
             const cam = new Cam({
@@ -137,8 +137,11 @@ const CameraController = new class CameraController {
               password: '',
               port: 8822
             })
+            console.log('[debug] Cam init')
             await cam.connect();
+            console.log('[debug] Cam conn')
             await cam.continuousMove(velocity)
+            console.log('[debug] Cam moved')
         } catch (e) { console.error(e) }
         
         return sendJson({ success: true })
@@ -257,7 +260,6 @@ const fetchMedia = async() => {
     } catch (e) {
         for(const source of latestSources) {
             const data = JSON.stringify({ ready: false })
-            console.log(source.name, data)
             await redis.set('source:' + source.name, data)
         }
         latestSources = []

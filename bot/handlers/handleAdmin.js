@@ -61,7 +61,6 @@ const getGroupUsers = async (ctx) => {
     const [ groupId ] = ctx.args
     
     const response = await request(ctx, `groups/${groupId}/users?fields=accounts`, { method: 'GET' })
-    console.log()
     const text = `💫 <b>Список участников</b>`
     
     await (new ArrowPanel(ctx, "gusers").setArray(response.members).setText(text).send())
@@ -118,8 +117,6 @@ const createInvite = async (ctx) => {
     
     const body = { groupId, userId }
     const invite = await request(ctx, 'invites', { method: 'POST', body })
-    
-    console.log(invite)
     
     const { buf } = await generate(
         '0000.' + invite.nonce + '.' + invite.expiresAt, 'favicon.png',
