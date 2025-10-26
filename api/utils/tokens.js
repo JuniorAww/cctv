@@ -1,26 +1,33 @@
+import { LRUCache as LRU } from 'lru-cache'
 import { timingSafeEqual } from 'crypto'
 import Session from '../db/models/Session'
 
 // TODO change signature storage (add initial secret password)
 const SECRET = process.env.SECRET || (() => { throw 'Secret is undefined' })()
 
-const getNow = () => Math.floor(new Date().getTime() / 60000)
+export const getNow = () => Math.floor(new Date().getTime() / 60000)
+
+const sigCache = new LRU({
+    ttl: 1000 * 60 * 10,
+    max: 100,
+})
+
+/*
+  Токены 
+ */
 
 const getMediaToken = (groupId, unixMinute) => {
     if(unixMinute === undefined) unixMinute = getNow()
-    const payload = `${groupId}:${unixMinute}:${SECRET}`
-    const hash = new Bun.CryptoHasher("sha256").update(payload).digest("hex")
+    const payload = `${groupId}:${unixMinute}`
+    // CryptoHasher with secret = HMAC (in Bun)
+    const hash = new Bun.CryptoHasher("sha256", SECRET).update(payload).digest("base64")
     return `${groupId}-${unixMinute}-${hash.slice(0, 32)}`
 }
 
-const verifyMediaToken = (token, groupId) => {
-    const [ _groupId, _unixMinute, _signature ] = token.split('-')
-    if(_signature?.length !== 32 || !Number(_unixMinute)) return false
-    const now = getNow()
-    if(now - _unixMinute > 2) return false
-    const _token = getMediaToken(groupId, _unixMinute)
-    return safeEqual(token, _token)
-    // timing attack fixed (?)
+const verifyMediaToken = (providedToken, providedGroupId, providedUnixMinute) => {
+    const token = getMediaToken(providedGroupId, providedUnixMinute)
+    return safeEqual(token, providedToken)
+    // UPD: unixMinute сверка вынесена в controller
 }
 
 const safeEqual = (a, b) => {
@@ -28,18 +35,6 @@ const safeEqual = (a, b) => {
     const bufB = Buffer.from(b)
     return bufA.length === bufB.length && timingSafeEqual(bufA, bufB)
 }
-
-// TODO limit cache
-const sigCache = new Map()
-
-const cleaner = () => {
-    const now = Math.floor(Date.now() / 60000)
-    
-    for(const [ key, [sig, expiresAt] ] of sigCache) {
-        if(expiresAt < now) sigCache.delete(key)
-    }
-}
-setInterval(cleaner, 60000)
 
 /*
 // Verify custom token
@@ -57,13 +52,14 @@ function _verify(payload, expiresAt, signature) {
     console.log(fullPayload)
     
     const cachedSig = sigCache.get(fullPayload)
-    console.log(cachedSig)
-    if(cachedSig) return safeEqual(cachedSig[0], signature)
+    
+    if(cachedSig) return safeEqual(cachedSig, signature)
     
     const notCachedSig = sign(fullPayload)
     const match = safeEqual(notCachedSig, signature)
     if(match) {
-        sigCache.set(fullPayload, [ notCachedSig, Number(expiresAt) ])
+        if(sigCache.size > 10000) sigCache.clear()
+        sigCache.set(fullPayload, notCachedSig)
         return true
     }
     else return false
@@ -76,17 +72,17 @@ function verifyAndExtract(token) {
 }
 
 function _extract(rawPayload, expiresAt) {
-    const payload = {
-        exp: expiresAt
-    }
+    const parsedPayload = {};
     
     rawPayload.split(",").map(entry => {
-        console.log(entry)
-        const [ key, value ] = entry.split(':')
-        payload[key] = value;
-    })
+        const [ key, value ] = entry.split(':');
+        if (key) parsedPayload[key] = value;
+    });
     
-    return payload
+    return {
+        ...parsedPayload,
+        exp: expiresAt 
+    };
 }
 
 function extract(token) {
@@ -108,15 +104,16 @@ function getToken(payload, expiresInMinutes = 5) {
 function getTokenUntil(payload, expiresAt) {
     const fullPayload = `${payload}.${expiresAt}`
     const cachedSig = sigCache.get(fullPayload)
-    if(cachedSig) return `${fullPayload}.${cachedSig[0]}`
+    if(cachedSig) return `${fullPayload}.${cachedSig}`
     
     const signature = sign(fullPayload)
-    sigCache.set(fullPayload, [ signature, expiresAt ])
+    sigCache.set(fullPayload, signature)
     
     return `${fullPayload}.${signature}`
 }
 
 function sign(fullPayload) {
+    // CryptoHasher with secret = HMAC (in Bun)
     const hasher = new Bun.CryptoHasher("sha512", SECRET)
     hasher.update(fullPayload)
     return hasher.digest("base64")

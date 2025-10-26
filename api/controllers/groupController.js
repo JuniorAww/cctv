@@ -59,7 +59,7 @@ const GroupController = new class GroupController {
                         role: u.GroupUser.role,
                         avatar: u.GroupUser.avatar,
                         createdAt: u.GroupUser.createdAt,
-                        lastSeen: cached[i] || 0
+                        lastSeen: Number(cached[i]) || 0
                     }))
                 } else entry.users = []
             }

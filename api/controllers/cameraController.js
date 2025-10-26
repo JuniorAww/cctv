@@ -241,22 +241,34 @@ const fetchMedia = async() => {
         
         const changedSources = latestSources.length === 0 ? sources : sources.filter((x, i) => x.ready !== latestSources[i]?.ready)
         
+        let media;
+        
         if(changedSources) {
-            const media = await getConfigs()
+            media = await getConfigs();
             
             latestSources = sources;
             for(const source of changedSources) {
                 const data = JSON.stringify({ ready: source.ready })
                 console.log('Кеш для', source.name, 'установлен на', data)
                 await redis.set('source:' + source.name, data)
+            }
+        }
+        
+        if (new Date().getSeconds() % 15 === 0) {
+            const needRestart = sources.filter(x => !x.ready);
+            
+            if (needRestart.length) {
+                console.log('Request restart for ' + needRestart.map(x => x.name).join(', '))
+                if (!media) media = await getConfigs();
                 
-                if(!source.ready) {
+                for (const source of needRestart) {
                     const config = media.find(x => x.name === source.name)
                     if(config) setTimeout(() => restartCamera(config), 1500)
                     else console.error("Ошибка перезапуска источника: конфиг для", source.name, "не найден")
                 }
             }
         }
+        
     } catch (e) {
         for(const source of latestSources) {
             const data = JSON.stringify({ ready: false })

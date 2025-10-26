@@ -19,7 +19,7 @@ export default function Avatar({ src, alt }) {
             width: 20px;
             height: 20px;
             border: 4px solid #ccc;
-            border-top-color: rgb(226, 232, 240);
+            border-top-color: #1a202c;
             border-radius: 50%;
             animation: spin 1s linear infinite;
         "></div>

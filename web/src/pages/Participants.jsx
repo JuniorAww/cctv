@@ -22,7 +22,7 @@ export default function Participants({ users }) {
                             <div>
                                 <div style={styles.participantName}>{name}</div>
                                 <div style={styles.participantLastSeen}>
-                                    Был(а) в сети: <TimeAgo unixTime={lastSeen}/>
+                                    Был(а) в сети: <TimeAgo unixTime={lastSeen * 1000}/>
                                 </div>
                             </div>
                         </li>

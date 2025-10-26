@@ -7,12 +7,14 @@ import WebAccount from '../db/models/WebAccount'
 import redis from '../utils/redis'
 
 import sequelize from '../db/index.js'
+import { getNow } from '../utils/tokens.js'
 
 import { extractCookies } from '../utils/cookies.js'
 import { getTokenUntil, verify, extract, verifyAndExtract, verifyMediaToken } from '../utils/tokens.js'
 
 const onlineCacheThrottle = {}
 
+// TODO вынести в отдельный util (class RateLimit)
 const RATE_LIMIT_MAX = 4
 const RATE_LIMIT_TTL = 60 * 5
 
@@ -28,9 +30,9 @@ async function resetRateLimit(ip, type) {
 }
 
 const AuthController = new class AuthController {
-    /*
-    // Обновление Access + Refresh токенов
-    */
+    /**
+    Обновление Access + Refresh токенов
+     */
     async refresh(request, url) {
         const receivedToken = extractCookies(request).refreshT
         
@@ -39,12 +41,15 @@ const AuthController = new class AuthController {
         
         const { exp, ses } = extract(receivedToken)
         
+        const sessionId = parseInt(ses, 10)
+        if (isNaN(sessionId)) return sendJson({ error: 'Wrong Session ID' })
+        
         const now = Math.floor(Date.now() / 60000)
         const [ atea, rtea ] = getTokenExpirations(now)
         
         const session = await Session.findOne({
             where: {
-                id: Number(ses),
+                id: sessionId,
                 disabled: false,
                 expiresAt: {[Sequelize.Op.gt]: now}
             }, 
@@ -54,10 +59,11 @@ const AuthController = new class AuthController {
         
         let update = false;
         
-        // TODO add ip when logging in/signing in
-        if (!session.history.find(entry => entry.ip === request.ip)) {
-            console.log('new IP for ' + session.user.id + ': ' + request.ip)
+        if (!session.history.some(e => e.ip === request.ip)) {
             session.history.push({ at: now, ip: request.ip });
+            if (session.history.length > 20) {
+                session.history = session.history.slice(session.history.length - 20);
+            }
             session.changed('history', true);
             update = true;
         }
@@ -91,6 +97,32 @@ const AuthController = new class AuthController {
         await resetRateLimit(request.ip, "login")
         
         return await this.createSession(user, fingerprint, request.ip)
+    }
+    
+    async logout(request, sessionId) {
+        const { userId } = request;
+        const canAccessAllSessions = request.access === "ALL"
+        
+        if(!canAccessAllSessions) {
+            if(!sessionId) return sendJson({ error: 'No Access' })
+            
+            if(!userId) return sendJson({ error: 'No Access' })
+            
+            const [ updated ] = await Session.update({
+                disabled: true
+            }, {
+                where: {
+                    id: sessionId,
+                    userId
+                }
+            })
+            
+            if (!updated) return sendJson({ error: 'Not Found' })
+            console.log('disabled', updated, sessionId)
+            await redis.set('disabled-session-' + sessionId , '1', { EX: 60 * 10 })
+            
+            return sendJson({ success: true })
+        }
     }
     
     // TODO
@@ -151,34 +183,6 @@ const AuthController = new class AuthController {
     }
     
     /*
-    // Выход из аккаунта - удаление сессии
-    */
-    async logout(request) {
-        const receivedToken = extractCookies(request).refreshT
-        
-        if(!receivedToken) return sendJson({ error: 'Wrong Cookie' })
-        if(!verify(receivedToken)) return sendJson({ error: 'Wrong Token' })
-        
-        const { exp, ses } = extract(receivedToken)
-        
-        const now = Math.floor(Date.now() / 60000)
-        const [ atea, rtea ] = getTokenExpirations(now)
-        
-        const [ updated_rows ] = await Session.update(
-            { disabled: true }, {
-            where: {
-                id: Number(ses),
-                disabled: false,
-                expiresAt: {[Sequelize.Op.gt]: now}
-            }
-        })
-        
-        if(updated_rows === 0) return sendJson({ error: 'Wrong Session' })
-        
-        return sendJson({ success: true })
-    }
-    
-    /*
     // Получение медиа-токена
     // Позволяет просматривать все видеопотоки из группы, указанной в токене
     */
@@ -188,15 +192,25 @@ const AuthController = new class AuthController {
         if(data.action === "publish" && data.protocol === "rtsp") return new Response("", { status: 200 })
         const token = data.token
         const path = data.path.split('/')
-        // TODO перенести проверку времени сюда
         
-        const [ groupId ] = token.split('-')
-        if(path[0] !== groupId) {
+        const [ groupIdStr, _unixMinute, signature ] = token.split('-')
+        if (!signature) return new Response("", { status: 403 })
+        
+        if(path[0] !== groupIdStr) {
             console.log('Группа в токене не совпала')
             return new Response("", { status: 403 })
         }
-        const good = verifyMediaToken(token, groupId)
-        return new Response("", { status: good ? 200 : 403 })
+        
+        const unixMinute = parseInt(_unixMinute, 10)
+        if (isNaN(unixMinute)) {
+            console.log('unixMinute = NaN')
+            return new Response("", { status: 403 })
+        }
+        
+        if (getNow() - _unixMinute > 2) return false
+        
+        const verified = verifyMediaToken(token, groupIdStr, unixMinute)
+        return new Response("", { status: verified ? 200 : 403 })
     }
 
     /*
@@ -221,14 +235,22 @@ const AuthController = new class AuthController {
             
             if(!payload) return sendJson({ error: 'Wrong Token' })
             
-            const { usr, acc } = payload
+            const { usr, ses } = payload
             
             // TODO fingerprint verifying
-            if(!usr) return sendJson({ error: "Wrong Token" }, 405)
+            if(!usr || !ses) return sendJson({ error: "Wrong Token" }, 405)
             
-            if(Date.now() - (onlineCacheThrottle[usr] ?? 0) > 2000) {
-                onlineCacheThrottle[usr] = Date.now()
-                redis.set('online:' + usr, Date.now())
+            const disabled = await redis.exists('disabled-session-' + ses)
+            if (disabled) return sendJson({ error: "Logged Out" }, 405)
+            
+            const second = Math.floor(Date.now() / 1000)
+            
+            if(second - (onlineCacheThrottle[usr] ?? 0) > 2) {
+                onlineCacheThrottle[usr] = second
+                redis.multi()
+                    .set('online:' + usr, second)
+                    .set('active:' + ses, second)
+                    .exec();
             }
             
             request.userId = usr
@@ -249,7 +271,7 @@ const getTokenExpirations = now => {
 }
 
 const sendTokens = (user, session, atea, rtea) => {
-    const accessT = getTokenUntil("usr:" + user.id, atea)
+    const accessT = getTokenUntil(`usr:${user.id},ses:${session.id}`, atea)
     const refreshT = getTokenUntil("ses:" + session.id, rtea)
 
     const headers = {

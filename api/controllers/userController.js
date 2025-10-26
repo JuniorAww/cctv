@@ -9,6 +9,7 @@ import GroupUser from '../db/models/GroupUser'
 
 import AuthController from './authController.js'
 
+import redis from '../utils/redis'
 import { getToken, verify, extract } from '../utils/tokens.js'
 import { extractCookies } from '../utils/cookies.js'
 
@@ -104,27 +105,30 @@ const UserController = new class UserController {
         return await AuthController.createSession(user, fingerprint, request.ip)
     }
     
+    // TODO объединить get/user и get/group в 1 запрос
     async get(request, [ url, query ]) {
         const { access, userId } = request
         const params = url.searchParams
         const fields = params.get('fields')?.split(',')
-
-        const includeGroups = fields?.includes('groups') ? [{
+        
+        const includeSessions = fields?.includes('sessions');
+        
+        const includeGroupsReq = fields?.includes('groups') ? [{
             model: Group,
             as: 'groups',
             through: { attributes: ['id', 'name', 'role', 'avatar', 'createdAt'] }
         }] : []
 
-        const includeAccounts = fields?.includes('accounts') ? [
+        const includeAccountsReq = fields?.includes('accounts') ? [
             { model: WebAccount, as: 'webAccount' },
             { model: TelegramAccount, as: 'telegramAccount' }
         ] : []
 
-        const includeSessions = fields?.includes('sessions') ? [
+        const includeSessionsReq = includeSessions ? [
             { model: Session, where: { disabled: false }, as: 'sessions' },
         ] : []
 
-        const include = [...includeGroups, ...includeAccounts, ...includeSessions ]
+        const include = [...includeGroupsReq, ...includeAccountsReq, ...includeSessionsReq ]
 
         // /users — вернуть всех пользователей
         if (!query) {
@@ -189,7 +193,7 @@ const UserController = new class UserController {
                     webAccounts: user.webAccount,
                     telegramAccounts: user.telegramAccount
                 }),
-                ...(fields?.includes('sessions') && {
+                ...(includeSessions && {
                     sessions: user.sessions.map(s => {
                         return {
                             id: s.id,
@@ -201,7 +205,16 @@ const UserController = new class UserController {
                 }),
             }
         }
-
+        
+        if (includeSessions) {
+            const requestedSessionOnlines = response.user.sessions
+                                            .map(s => 'active:' + s.id)
+            const cached = await redis.mGet(requestedSessionOnlines) // TODO убедиться что последовательность никогда не меняется
+            cached.forEach((c, i) => {
+                response.user.sessions[i].active = Number(cached[i]);
+            })
+        }
+        
         return sendJson(response)
     }
 

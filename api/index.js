@@ -11,8 +11,7 @@ import GroupUserController from './controllers/groupUserController'
 import InviteController from './controllers/inviteController'
 import AuthController from './controllers/authController'
 import CameraController from './controllers/cameraController'
-
-import sequelize from './db/index'
+import DBUtils from './utils/db'
 
 import Token from './db/models/Token'
 
@@ -42,6 +41,8 @@ const initTokens = async() => {
 setTimeout(initTokens, 200)
 
 function nginxHandler(request) {
+    console.log(request)
+    
     const url = new URL(request.url)
     const path = url.pathname
     const method = request.method
@@ -59,6 +60,7 @@ function nginxHandler(request) {
     
     const arg = path.split('/')
     
+    // TODO вынести в ./routes/*
     if (method === 'GET') {
         if (arg[1] === 'groups') {
             if(arg[3] === 'users' && Number(arg[2])) return authenticate(request, [ url, Number(arg[2]) ], GroupController.getUsers)
@@ -101,7 +103,7 @@ function nginxHandler(request) {
             if (Number(arg[2]) && !arg[3]) return CameraController.delete(request, arg[2]) // Restricted
         }
         else if (arg[1] === 'sessions') {
-            if (Number(arg[2]) && !arg[3]) return authenticate(request, Number(arg[2]), SessionController.delete)
+            if (Number(arg[2]) && !arg[3]) return authenticate(request, Number(arg[2]), AuthController.logout)
         }
         //else if (arg[1] === 'admin' && request.access === 'ALL') return patch(request)
     }
@@ -112,32 +114,11 @@ function nginxHandler(request) {
                 else return authenticate(request, [ url, arg[2] ], GroupUserController.update)
             }
         }
-        else if (arg[1] === 'admin' && request.access === 'ALL') return patch(request)
+        else if (arg[1] === 'admin' && request.access === 'ALL') return DBUtils.patch(request)
     }
     
     // TODO ratelimit if 404
     return new Response('Not Found', { status: 404 });
-}
-
-const patch = async (request) => {
-    const { table, id, key, value } = await request.json()
-    
-    const replacements = { id: Number(id) }
-    replacements[key] = value
-    console.log(table,id,key,value,replacements)
-    try {
-        const response = await sequelize.query(
-            "UPDATE " + table + " SET " + key + " = :" + key + " WHERE id = :id",
-            {
-                replacements, // подставляем параметры
-                type: sequelize.QueryTypes.UPDATE
-            }
-        )
-        
-        return sendJson(response)
-    } catch (e) {
-        return sendJson(e.toString())
-    }    
 }
 
 const sendJson = (json, status) => {

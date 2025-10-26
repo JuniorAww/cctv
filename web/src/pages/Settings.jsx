@@ -184,7 +184,7 @@ function SessionsTab({ sessions, currentSession, disableSession }) {
                 <li key={session.id} style={styles.sessionListItem}>
                    <div>
                      <p style={styles.sessionInfo}>{session.history.map(x => x.ip || x.val).join(', ')} {session.id === currentSession.id && <span style={styles.sessionCurrentBadge}> (текущая)</span>}</p>
-                     <p style={styles.sessionMeta}>Добавлена {TimeAgo({ unixTime: latest.at * 60000 })}</p>
+                     <p style={styles.sessionMeta}>Добавлена {TimeAgo({ unixTime: latest.at * 60000 }).toLowerCase()}, активна  {session.active ? TimeAgo({ unixTime: session.active * 1000 }).toLowerCase() : "неизвестно когда"}</p>
                    </div>
                    {session.id !== currentSession.id && <button onClick={() => disableSession(session)} style={{...styles.button, ...styles.buttonDanger}}>Завершить</button>}
                 </li>

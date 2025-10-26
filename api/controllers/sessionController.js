@@ -15,6 +15,7 @@ const SessionController = new class SessionController {
         
         const canAccessAllSessions = request.access === "ALL"
         
+        // TODO respond with cached last online
         if(!canAccessAllSessions) {
             if(!requestedUserId) return sendJson({ error: 'No Access' })
             const { userId } = request
@@ -48,30 +49,6 @@ const SessionController = new class SessionController {
             })
             
             return sendJson(response)
-        }
-    }
-    
-    async delete(request, sessionId) {
-        const { userId } = request;
-        const canAccessAllSessions = request.access === "ALL"
-        
-        if(!canAccessAllSessions) {
-            if(!sessionId) return sendJson({ error: 'No Access' })
-            
-            if(!userId) return sendJson({ error: 'No Access' })
-            
-            const [ updated ] = await Session.update({
-                disabled: true
-            }, {
-                where: {
-                    id: sessionId,
-                    userId
-                }
-            })
-            
-            if (!updated) return sendJson({ error: 'Not Found' })
-            
-            return sendJson({ success: true })
         }
     }
 }
