@@ -80,9 +80,10 @@ export default function Cameras({ cameras, group, api, isMobile }) {
                         if (!cam) return null;
                         const source = cam.media?.find(x => x.type === 'hls');
                         const ptz = cam.media?.find(x => x.type === 'ptz') ? `cameras/${cam.id}/ptz` : null;
+                        console.log(cam, cam.ready)
                         return (
                             <div key={id} style={styles.mobileCameraItem}>
-                                <VideoPlayer api={api} groupId={group} token={cam.token} url={source?.url} ptzEndpoint={ptz} />
+                                <VideoPlayer api={api} ready={cam.ready} groupId={group} token={cam.token} url={source?.url} ptzEndpoint={ptz} />
                             </div>
                         );
                     })}
@@ -98,7 +99,7 @@ export default function Cameras({ cameras, group, api, isMobile }) {
                         console.log('Rerendering camera')
                         return (
                            <div key={id} style={styles.cameraGridItem}>
-                                <VideoPlayer api={api} groupId={group} token={cam.token} url={source?.url} ptzEndpoint={ptz} />
+                                <VideoPlayer api={api} ready={cam.ready} groupId={group} token={cam.token} url={source?.url} ptzEndpoint={ptz} />
                             </div>
                         );
                     })}

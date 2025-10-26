@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, memo } from "react"
 import styles from '../styles'
 
-const VideoPlayer = ({ api, groupId, token, url, ptzEndpoint }) => {
+const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
   const hlsRef = useRef(null);
   const videoRef = useRef(null);
   const containerRef = useRef(null);
@@ -79,6 +79,7 @@ const VideoPlayer = ({ api, groupId, token, url, ptzEndpoint }) => {
       await parentElement.requestFullscreen().catch(err => console.error(err));
     } else {
       await document.exitFullscreen();
+      setTransform({ scale: 1, x: 0, y: 0 })
     }
   };
   
@@ -267,19 +268,29 @@ const VideoPlayer = ({ api, groupId, token, url, ptzEndpoint }) => {
   return (
     <div ref={containerRef} style={styles.videoPlayerContainer}>
       <video ref={videoRef} muted={isMuted} playsInline style={videoStyles} />
-
-      {(isLoading || autoplayBlocked) && (
+      
+      {(!ready || isLoading || autoplayBlocked) && (
         <div style={styles.videoOverlay}>
-          {autoplayBlocked ? (
+          {
+            // 1 Готовность источника TODO перенести стили в styles
+            !ready ? (
+              <><div style={{ fontSize: '16px', fontWeight: '1000', color: '#f66' }}>Неактивно</div>
+              <a style={{ fontSize: '12px', color: 'white' }}>Этот источник недоступен!</a></>
+            ) :
+            // 2 Автопроигрывание (нужен клик на мобильных устройствах)
+            autoplayBlocked ? (
             <button onClick={togglePlay} style={styles.videoPlayButton}>
               <PlayIcon />
             </button>
-          ) : (
+            )
+            // 3 Загрузка
+            : (
             <div style={styles.videoLoader} />
-          )}
+            )
+          }
         </div>
       )}
-
+      
       <div style={styles.videoLatency}>
         Задержка: {latency} сек
       </div>
