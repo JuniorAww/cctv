@@ -8,11 +8,11 @@ import Cameras from './pages/Cameras'
 import Settings from './pages/Settings'
 
 import useAuth from './hooks/useAuth'
-import AuthPage from './pages/AuthPage' // объединённая страница QR + login/register
+import AuthPage from './pages/AuthPage'
 import styles from './styles'
 
 export default function App() {
-    const { getSession, api, token, logged, updateToken } = useAuth();
+    const { getSession, api, token, logged, updateToken, logout } = useAuth();
     const [ stage, setStage ] = useState(null); // auth | main
     const [ group, setGroup ] = useState(null);
     const [ groups, setGroups ] = useState(null);
@@ -28,7 +28,6 @@ export default function App() {
         if (!logged) {
             setStage('auth');
             removePreloader()
-            console.log('auth stage, removed preloader')
         } else {
             const init = async () => {
                 try {
@@ -113,20 +112,24 @@ export default function App() {
     
     const handleNavMouseEnter = (e) => !e.target.dataset.active && (e.target.style.backgroundColor = '#4a5568', e.target.style.color = '#fff');
     const handleNavMouseLeave = (e) => !e.target.dataset.active && (e.target.style.backgroundColor = 'transparent', e.target.style.color = '#a0aec0');
-
+    
     const navLinks = [
-        { href: '/', label: 'Сводка' }, { href: '/cameras', label: 'Просмотр' }, { href: '/recordings', label: 'Записи' },
-        { href: '/participants', label: 'Участники' }, { href: '/settings', label: 'Настройки' },
+        { href: '/', label: 'Сводка' }, { href: '/watch', label: 'Просмотр' }, { href: '/rewind', label: 'Записи' },
+        { href: '/group', label: 'Участники' }, { href: '/settings', label: 'Настройки' },
     ];
     
-    console.log(stage)
-    
     if (stage === null) {
-        return <div style={styles.authContainer}><h2 style={styles.h2}>Загрузка...</h2></div>;
+        return (<>
+          <div style={styles.background}></div>
+          <div style={styles.authContainer}><h2 style={styles.h2}>Загрузка...</h2></div>
+        </>);
     }
     
     if (stage === 'auth') {
-        return <AuthPage api={api} onLogin={onLogin} />;
+        return (<>
+          <div style={styles.background}></div>
+          <AuthPage api={api} onLogin={onLogin} />
+        </>);
     }
     
     const sidebarStyle = isMobile ? {...styles.sidebar, ...styles.sidebarMobile, ...(isSidebarOpen && styles.sidebarMobileOpen)} : styles.sidebar;
@@ -143,12 +146,11 @@ export default function App() {
         _member.name = newMember.name;
         if (newMember.avatar) _member.avatar = newMember.avatar;
         setGroups(_groups);
-        
-        console.log(_groups, _users)
     }
     
     return (
         <div style={styles.appContainer}>
+            <div style={styles.background}></div>
             {isMobile && (
                 <div
                     style={{
@@ -177,9 +179,7 @@ export default function App() {
                     <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
                         {isMobile && (
                             <button onClick={() => setSidebarOpen(!isSidebarOpen)} style={styles.hamburgerButton}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
-                                    <path fillRule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
-                                </svg>
+                              <Hamburger/>
                             </button>
                         )}
                         <h2 style={styles.headerTitle}>{navLinks.find(l => l.href === currentPath)?.label}</h2>
@@ -195,14 +195,21 @@ export default function App() {
                     <div style={isMobile ? {...styles.pageWrapper, ...styles.pageWrapperMobile} : styles.pageWrapper}>
                         <Router onChange={e => setCurrentPath(e.url.split('?')[0])}>
                             <Dashboard path="/" users={users || []} cameras={cameras} />
-                            <Cameras path="/cameras" api={api} group={group} cameras={cameras} isMobile={isMobile} />
-                            <Recordings path="/recordings" />
-                            <Participants path="/participants" users={users || []} />
-                            <Settings api={api} group={group} groups={groups} sessions={sessions} setSessions={setSessions} getSession={getSession} onGroupUserChange={onGroupUserChange} path="/settings" />
+                            <Cameras path="/watch" api={api} group={group} cameras={cameras} isMobile={isMobile} />
+                            <Recordings path="/rewind" />
+                            <Participants path="/group" users={users || []} />
+                            <Settings path="/settings" api={api} _logout={logout} group={group} groups={groups} sessions={sessions}
+                                      setSessions={setSessions} getSession={getSession} onGroupUserChange={onGroupUserChange} />
                         </Router>
                     </div>
                 </main>
             </div>
         </div>
     );
+}
+
+function Hamburger() {
+  return (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+      <path fillRule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
+  </svg>)
 }

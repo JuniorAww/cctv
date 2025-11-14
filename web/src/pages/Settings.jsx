@@ -3,7 +3,7 @@ import Avatar from '../components/Avatar'
 import TimeAgo from '../utils/timeAgo'
 import styles from '../styles'
 
-export default function Settings({ api, groups, group, sessions, setSessions, getSession, onGroupUserChange }) {
+export default function Settings({ api, _logout, groups, group, sessions, setSessions, getSession, onGroupUserChange }) {
   const groupData = useMemo(() => groups.find(x => x.id === group), [ groups, group ])
   if (!groupData.member) alert("Ошибка получения данных!")
   
@@ -84,13 +84,26 @@ export default function Settings({ api, groups, group, sessions, setSessions, ge
   }
   
   const disableSession = async session => {
-    const response = await api(`/sessions/${session.id}`, true, {
+    const response = await api(`sessions/${session.id}`, true, {
       method: 'DELETE',
     })
-    const { success, error } = await response.json();
+    const { success, error } = await response.json()
     
     if (success) {
         setSessions([...sessions].filter(s => s.id !== session.id))
+    }
+    else alert(error)
+  }
+  
+  const logout = async session => {
+    const response = await api(`sessions/${session.id}`, true, {
+      method: 'DELETE',
+    })
+    const { success, error } = await response.json()
+    
+    if (success) {
+        _logout()
+        window.reload()
     }
     else alert(error)
   }
@@ -128,6 +141,7 @@ export default function Settings({ api, groups, group, sessions, setSessions, ge
                         sessions={sessions}
                         currentSession={currentSession}
                         disableSession={disableSession}
+                        logout={logout}
                     />
                 ) : activeTab === 'settings' ? (
                     <StylesTab/>
@@ -174,7 +188,7 @@ function ProfileView({ name, avatar, setEditing }) {
     );
 }
 
-function SessionsTab({ sessions, currentSession, disableSession }) {
+function SessionsTab({ sessions, currentSession, disableSession, logout }) {
     return (<div>
          <h3 style={styles.h3}>Активные сессии</h3>
          <ul style={{listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column-reverse'}}>
@@ -184,11 +198,27 @@ function SessionsTab({ sessions, currentSession, disableSession }) {
                 <li key={session.id} style={styles.sessionListItem}>
                    <div>
                      <p style={styles.sessionInfo}>{session.history.map(x => x.ip || x.val).join(', ')} {session.id === currentSession.id && <span style={styles.sessionCurrentBadge}> (текущая)</span>}</p>
-                     <p style={styles.sessionMeta}>Добавлена {TimeAgo({ unixTime: latest.at * 60000 }).toLowerCase()}, активна  {session.active ? TimeAgo({ unixTime: session.active * 1000 }).toLowerCase() : "неизвестно когда"}</p>
+                     <p style={styles.sessionMeta}>Создана {TimeAgo({ unixTime: latest.at * 60000 }).toLowerCase()}, онлайн  {session.active ? TimeAgo({ unixTime: session.active * 1000 }).toLowerCase() : "неизвестно когда"}</p>
                    </div>
-                   {session.id !== currentSession.id && <button onClick={() => disableSession(session)} style={{...styles.button, ...styles.buttonDanger}}>Завершить</button>}
+                   {session.id !== currentSession.id ?
+                    <Hoverable func={() => disableSession(session)} text="Завершить"/> :
+                    <Hoverable func={() => logout(session)} text="Выйти"/>
+                  }
                 </li>
             )})}
          </ul>
+         <styles>
+            
+         </styles>
     </div>)
+}
+
+function Hoverable({ func, text }) {
+  const [ hovered, setHovered ] = useState(false);
+
+  return (
+    <button onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)} onClick={func}
+            style={{ ...styles.button, ...styles.logoutButton, ...(hovered && { opacity: 1 }) }}>{ text }</button>
+  );
 }

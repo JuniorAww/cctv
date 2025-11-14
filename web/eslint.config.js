@@ -1,7 +1,3 @@
-import js from '@eslint/js'
-import globals from 'globals'
-import reactHooks from 'eslint-plugin-react-hooks'
-import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
@@ -9,13 +5,17 @@ export default defineConfig([
   {
     files: ['**/*.{js,jsx}'],
     extends: [
-      js.configs.recommended,
-      reactHooks.configs['recommended-latest'],
-      reactRefresh.configs.vite,
+      'eslint:recommended',
+      'plugin:react-hooks/recommended',
+      'plugin:react-refresh/vite',
     ],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        // or import from 'globals'
+      },
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },

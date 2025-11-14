@@ -45,22 +45,20 @@ const quotes = [
 ]
 
 export default function Dashboard({ users, cameras }) {
-  const now = Date.now()
+  const now = Date.now() / 1000
   
   const quote = useMemo(() => {
-      console.log(quotes)
       const dayQuotes = quotes[(new Date().getDay() + 6) % 7]
-      console.log(dayQuotes)
       return dayQuotes[Math.floor(Math.random() * dayQuotes.length)]
   }, [])
   
-  const recent10m = users?.filter(u => now - new Date(+u.lastSeen).getTime() < 10*60*1000) ?? []
-  const recent1d  = users?.filter(u => now - new Date(+u.lastSeen).getTime() < 24*60*60*1000) ?? []
-  const newUsers  = users?.filter(u => now - new Date(+u.createdAt).getTime() < 24*60*60*1000) ?? []
+  const recent10m = users?.filter(u => now - +u.lastSeen < 10*60) ?? []
+  const recent1d  = users?.filter(u => now - +u.lastSeen < 24*60*60) ?? []
+  const newUsers  = users?.filter(u => now - +u.createdAt < 24*60*60) ?? []
 
   return (
         <div>
-            <h3 style={{ ... styles.h3, marginBottom: '30px' }}>{ quote }</h3>
+            <h3 style={{ ... styles.h3, zIndex: 1, position: 'relative', marginBottom: '30px' }}>{ quote }</h3>
             <div style={styles.dashboardGrid}>
                 <div style={styles.card}>
                     <h3 style={styles.h3}>Камеры</h3>

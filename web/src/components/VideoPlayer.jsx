@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, memo } from "react"
 import styles from '../styles'
 
-const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
+const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint, isMobile }) => {
   const hlsRef = useRef(null);
   const videoRef = useRef(null);
   const containerRef = useRef(null);
@@ -9,32 +9,28 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
   const tokenRef = useRef(token);
 
   const [ isPlaying, setIsPlaying ] = useState(false);
+  const [ hasAudio, setHasAudio ] = useState(false);
   const [ isMuted, setIsMuted ] = useState(true);
   const [ isFullscreen, setIsFullscreen ] = useState(false);
   const [ controlsVisible, setControlsVisible ] = useState(true);
   const [ latency, setLatency ] = useState(0);
-  const [ isMobile, setIsMobile ] = useState(false);
   const [ isLoading, setIsLoading ] = useState(true);
   const [ autoplayBlocked, setAutoplayBlocked ] = useState(false);
   const [ transform, setTransform ] = useState({ scale: 1, x: 0, y: 0 });
+  const transformRef = useRef(transform);
+  
+  useEffect(() => {
+    transformRef.current = transform;
+  }, [transform]);
   
   const gestureState = useRef({
     pointers: new Map(),
     lastMidpoint: null,
     lastDistance: 0,
   }).current;
-  
-  useEffect(() => {
-    setIsMobile(/Mobi|Android/i.test(navigator.userAgent));
-    
-    const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', onFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
-  }, []);
 
   useEffect(() => {
     if (!url || !videoRef.current || !token) return;
-    // Assume HLS.js is loaded from a script tag in index.html
     if (window.Hls && window.Hls.isSupported()) {
       const hls = new window.Hls({
         lowLatencyMode: true,
@@ -43,10 +39,16 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
         maxLiveSyncPlaybackRate: 1.5,
         xhrSetup: (xhr) => xhr.setRequestHeader("Authorization", "Bearer " + tokenRef.current)
       });
-      // Corrected the URL to include the manifest file, as in the original code
       hls.loadSource(url + "/index.m3u8"); 
       hls.attachMedia(videoRef.current);
       hlsRef.current = hls;
+      hls.on(Hls.Events.BUFFER_CREATED, (eventName, data) => {
+        const hasAudio = Object.keys(data.tracks).some(
+          (sBufferName) => sBufferName === 'audio' || sBufferName === 'audiovideo'
+        );
+        
+        setHasAudio(hasAudio);
+      });
       return () => hls.destroy();
     } else if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
       videoRef.current.src = url + "/index.m3u8";
@@ -67,7 +69,7 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
   };
 
   const toggleMute = () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !hasAudio) return;
     videoRef.current.muted = !videoRef.current.muted;
     setIsMuted(videoRef.current.muted);
   };
@@ -79,7 +81,6 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
       await parentElement.requestFullscreen().catch(err => console.error(err));
     } else {
       await document.exitFullscreen();
-      setTransform({ scale: 1, x: 0, y: 0 })
     }
   };
   
@@ -101,8 +102,8 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
     if (!v) return;
     const onPlay = () => { setIsPlaying(true); setAutoplayBlocked(false); setIsLoading(false); };
     const onPause = () => setIsPlaying(false);
-    const onPlaying = () => setIsLoading(false); // Hide loader when playing starts
-    const onWaiting = () => setIsLoading(true); // Show loader on buffer
+    const onPlaying = () => setIsLoading(false);
+    const onWaiting = () => setIsLoading(true);
     v.addEventListener("play", onPlay);
     v.addEventListener("pause", onPause);
     v.addEventListener("playing", onPlaying);
@@ -119,7 +120,7 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
     if (videoRef.current) {
       videoRef.current.play().catch(() => {
         setAutoplayBlocked(true);
-        setIsLoading(true); // Keep loading state for the play button
+        setIsLoading(true);
       });
     }
   }, []);
@@ -137,7 +138,7 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
     if (!container) return;
     container.addEventListener("mousemove", showControls);
     container.addEventListener("mouseleave", () => clearTimeout(hideTimer));
-    showControls(); // Show on mount
+    showControls();
     return () => {
       container.removeEventListener("mousemove", showControls);
       container.removeEventListener("mouseleave", () => clearTimeout(hideTimer));
@@ -153,7 +154,6 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
-  
   
   /* Simple Zoom */
   const getClampedTransform = (newTransform) => {
@@ -179,6 +179,9 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
   }, [gestureState]);
 
   const onPointerUp = useCallback((e) => {
+    if (!gestureState.pointers.has(e.pointerId)) {
+       return;
+    }
     e.target.releasePointerCapture(e.pointerId);
     gestureState.pointers.delete(e.pointerId);
     if (gestureState.pointers.size < 2) {
@@ -188,10 +191,24 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
       gestureState.lastMidpoint = null;
     }
   }, [gestureState]);
+  
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
+    if (transform.scale > 1) {
+      container.style.touchAction = 'none';
+    } else {
+      container.style.touchAction = 'pan-y';
+    }
+    
+  }, [transform.scale]);
+
+  
   const onPointerMove = useCallback((e) => {
     if (gestureState.pointers.size === 0) return;
 
+    // Обновляем указатель в карте
     gestureState.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const pointers = Array.from(gestureState.pointers.values());
 
@@ -200,11 +217,16 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
         gestureState.lastMidpoint = { x: pointers[0].x, y: pointers[0].y };
         return;
       }
+      
       const dx = pointers[0].x - gestureState.lastMidpoint.x;
       const dy = pointers[0].y - gestureState.lastMidpoint.y;
-
-      setTransform(prev => getClampedTransform({ ...prev, x: prev.x + dx, y: prev.y + dy }));
       gestureState.lastMidpoint = { x: pointers[0].x, y: pointers[0].y };
+      
+      if (transformRef.current.scale > 1) {
+        setTransform(prev => {
+          return getClampedTransform({ ...prev, x: prev.x + dx, y: prev.y + dy });
+        });
+      }
 
     } else if (pointers.length === 2) {
       const [p1, p2] = pointers;
@@ -217,16 +239,27 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
           return getClampedTransform({ ...prev, scale: newScale });
         });
       }
+      
       gestureState.lastDistance = distance;
     }
   }, [gestureState]);
   
   const onWheel = useCallback((e) => {
-    e.preventDefault();
+    const currentScale = transformRef.current.scale;
     const delta = e.deltaY * -0.005;
+    
+    const isZoomingOut = delta < 0;
+    
+    if (isZoomingOut && currentScale <= 1) {
+      return;
+    }
+    
+    e.preventDefault();
+    
     setTransform(prev => {
       const newScale = Math.min(Math.max(1, prev.scale + delta), 4);
       const newTransform = { ...prev, scale: newScale };
+      
       if (newScale === 1) {
         newTransform.x = 0;
         newTransform.y = 0;
@@ -239,6 +272,77 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
       gestureState.pointers.delete(e.pointerId);
   }, [gestureState]);
   
+  const windowedSizeRef = useRef({ width: 0, height: 0 });
+  const fullscreenSizeRef = useRef({ width: 0, height: 0 });
+  
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(entries => {
+        if (!document.fullscreenElement && entries[0]) {
+            const { width, height } = entries[0].contentRect;
+            windowedSizeRef.current = { width, height };
+        }
+    });
+
+    resizeObserver.observe(container);
+
+    if (container.clientWidth > 0 && !document.fullscreenElement) {
+        windowedSizeRef.current = {
+            width: container.clientWidth,
+            height: container.clientHeight
+        };
+    }
+
+    return () => resizeObserver.disconnect();
+  }, [containerRef]);
+  
+  const onFullscreenChange = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const isNowFullscreen = !!document.fullscreenElement;
+    setIsFullscreen(isNowFullscreen);
+
+    let oldSize, newSize;
+
+    if (isNowFullscreen) {
+        newSize = {
+            width: container.clientWidth,
+            height: container.clientHeight
+        };
+        fullscreenSizeRef.current = newSize;
+        oldSize = windowedSizeRef.current;
+    } else {
+        newSize = {
+            width: container.clientWidth,
+            height: container.clientHeight
+        };
+
+        oldSize = fullscreenSizeRef.current;
+    }
+
+    if (oldSize.width === 0 || oldSize.height === 0 || newSize.width === 0) {
+        console.warn("Размеры для пересчета трансформации еще не готовы.");
+        return;
+    }
+
+    const changeX = newSize.width / oldSize.width;
+    const changeY = newSize.height / oldSize.height;
+
+    setTransform(prev => ({
+        scale: prev.scale,
+        x: prev.x * changeX,
+        y: prev.y * changeY
+    }));
+  };
+  
+  useEffect(() => {
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+  
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -249,6 +353,7 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
     container.addEventListener('pointermove', onPointerMove);
     container.addEventListener('lostpointercapture', onLostPointerCapture);
     container.addEventListener('wheel', onWheel, { passive: false });
+    document.addEventListener('fullscreenchange', onFullscreenChange);
 
     return () => {
       container.removeEventListener('pointerdown', onPointerDown);
@@ -257,6 +362,7 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
       container.removeEventListener('pointermove', onPointerMove);
       container.removeEventListener('lostpointercapture', onLostPointerCapture);
       container.removeEventListener('wheel', onWheel);
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
     };
   }, [onPointerDown, onPointerUp, onPointerMove, onWheel, onLostPointerCapture]);
   
@@ -273,7 +379,7 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
         <div style={styles.videoOverlay}>
           {
             // 1 Готовность источника TODO перенести стили в styles
-            !ready ? (
+            !ready && latency === 0 ? (
               <><div style={{ fontSize: '16px', fontWeight: '1000', color: '#f66' }}>Неактивно</div>
               <a style={{ fontSize: '12px', color: 'white' }}>Этот источник недоступен!</a></>
             ) :
@@ -300,7 +406,7 @@ const VideoPlayer = ({ api, ready, groupId, token, url, ptzEndpoint }) => {
           <button onClick={togglePlay} style={styles.videoControlButton}>
             {isPlaying ? <PauseIcon /> : <PlayIcon />}
           </button>
-          <button onClick={toggleMute} style={styles.videoControlButton}>
+          <button onClick={toggleMute} style={{ ...styles.videoControlButton, ...(!hasAudio ? { opacity: 0.5 } : {}) }}>
             {isMuted ? <VolumeXIcon /> : <Volume2Icon />}
           </button>
         </div>

@@ -118,7 +118,7 @@ const AuthController = new class AuthController {
             })
             
             if (!updated) return sendJson({ error: 'Not Found' })
-            console.log('disabled', updated, sessionId)
+            
             await redis.set('disabled-session-' + sessionId , '1', { EX: 60 * 10 })
             
             return sendJson({ success: true })

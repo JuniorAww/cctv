@@ -70,7 +70,7 @@ export default function useAuth() {
         }
     }
 
-    function unlogin() {
+    function logout() {
         localStorage.removeItem('session')
         setToken(null)
         tokenRef.current = null
@@ -95,13 +95,13 @@ export default function useAuth() {
         
         if(MSToTokenUpdate < 0) {
             return refresh().then(ok => {
-                if(!ok) unlogin()
+                if(!ok) logout()
             })
         }
         
         const timeout = setTimeout(() => {
             refresh().then(ok => {
-                if(!ok) unlogin()
+                if(!ok) logout()
             })
         }, MSToTokenUpdate)
         
@@ -110,6 +110,6 @@ export default function useAuth() {
         return () => clearTimeout(timeout)
     }, [ token ])
 
-    return { token, logged, getSession, updateToken, api, unlogin }
+    return { token, logout, logged, getSession, updateToken, api }
 }
 

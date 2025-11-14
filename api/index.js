@@ -41,8 +41,6 @@ const initTokens = async() => {
 setTimeout(initTokens, 200)
 
 function nginxHandler(request) {
-    console.log(request)
-    
     const url = new URL(request.url)
     const path = url.pathname
     const method = request.method

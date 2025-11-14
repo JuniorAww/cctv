@@ -209,7 +209,7 @@ const UserController = new class UserController {
         if (includeSessions) {
             const requestedSessionOnlines = response.user.sessions
                                             .map(s => 'active:' + s.id)
-            const cached = await redis.mGet(requestedSessionOnlines) // TODO убедиться что последовательность никогда не меняется
+            const cached = await redis.mGet(requestedSessionOnlines)
             cached.forEach((c, i) => {
                 response.user.sessions[i].active = Number(cached[i]);
             })
